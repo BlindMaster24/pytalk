@@ -1,5 +1,5 @@
 [project]
-name = "py-talk"
+name = "py-talk-ex"
 version = "1.4.1"
 description = "a simple but powerful pythonic library for making bots for the TeamTalk5 Conferencing System"
 readme = "README.md"

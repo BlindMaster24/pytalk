@@ -59,8 +59,8 @@ Below are some useful links to help you get started with teamtalk.py:
 * :doc:`event reference </events>`
 * :doc:`API Documentation </api>`
 * :doc:`whats-new </whats-new>`
-* `GitHub Repository <https://github.com/JessicaTegner/teamtalk.py>`_
-* `PyPI <https://pypi.org/project/py-talk/>`_
+* `GitHub Repository <https://github.com/BlindMaster24/pytalk>`_
+* `PyPI <https://pypi.org/project/py-talk-ex/>`_
 
 
 Contributing
