@@ -24,6 +24,21 @@ Fixed
 
 - Fixed documentation not being generated correctly.
 
+:version:`1.4.5` - Unreleased
+---------------------------------
+
+Added
+~~~~~
+- Reinstated audio receiving events: `on_user_audio` and `on_muxed_audio` are now available again.
+
+Changed
+~~~~~~~
+- Updated the default client name used if no `client_name` is specified upon `TeamTalkBot` initialization.
+
+Notes
+~~~~~
+- The core logic for `on_user_audio` and `on_muxed_audio` has not been altered in this version. If your bot encounters issues or crashes when using these re-enabled audio events, please report them via a GitHub issue. While they may function correctly, thorough testing in your environment is recommended.
+
 :version:`1.4.1` - 2025-05-01
 ---------------------------------
 

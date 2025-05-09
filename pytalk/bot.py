@@ -33,7 +33,7 @@ _log = logging.getLogger(__name__)
 class TeamTalkBot:
     """A class that represents a TeamTalk bot."""
 
-    def __init__(self, client_name: Optional[str] = "Teamtalk.py") -> None:
+    def __init__(self, client_name: Optional[str] = "PyTalk") -> None:
         """Initialize a TeamTalkBot object.
 
         Args:
