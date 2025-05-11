@@ -11,7 +11,7 @@ class User:
     """Represents a user on a TeamTalk server.
 
     Attributes:
-        teamtalk_instance: An instance of TeamTalk.TeamTalkInstance.
+        teamtalk_instance: An instance of pytalk.TeamTalkInstance.
         user: Either a string (username) or an int (user_id) or an instance of sdk.User.
     """
 
@@ -54,7 +54,7 @@ class User:
 
         Args:
             content: The content of the message.
-            **kwargs: Keyword arguments. See teamtalk.TeamTalkInstance.send_message for more information.
+            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for more information.
 
         Returns:
             The ID of the message if successful, or a negative value if unsuccessful.

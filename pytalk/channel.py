@@ -17,7 +17,7 @@ class Channel:
         """Initialize a Channel object.
 
         Args:
-            teamtalk: The teamtalk.TeamTalkInstance instance.
+            teamtalk: The pytalk.TeamTalkInstance instance.
             channel (Union[int, sdk.Channel]): The channel ID or a sdk.Channel object.
         """
         self.teamtalk = teamtalk
@@ -78,7 +78,7 @@ class Channel:
 
         Args:
             content: The message to send.
-            **kwargs: Keyword arguments. See teamtalk.TeamTalkInstance.send_message for more information.
+            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for more information.
 
         Raises:
             PermissionError: If the bot is not in the channel and is not an admin.
@@ -110,7 +110,7 @@ class Channel:
         """Get a list of users in the channel.
 
         Returns:
-            List[TeamTalkUser]: A list of teamtalk.User instances in the channel.
+            List[TeamTalkUser]: A list of pytalk.User instances in the channel.
         """
         users = self.teamtalk.super.getChannelUsers(self.id)
         return [TeamTalkUser(self.teamtalk, user) for user in users]
@@ -119,7 +119,7 @@ class Channel:
         """Get a list of files in the channel.
 
         Returns:
-            List[RemoteFile]: A list of teamtalk.RemoteFile instances in the channel.
+            List[RemoteFile]: A list of pytalk.RemoteFile instances in the channel.
         """
         files = self.teamtalk.super.getChannelFiles(self.id)
         return [RemoteFile(self.teamtalk, f) for f in files]

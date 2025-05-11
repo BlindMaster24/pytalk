@@ -10,7 +10,7 @@ class RemoteFile:
         """Initializes the RemoteFile instance.
 
         Args:
-            teamtalk_instance: The teamtalk.TeamTalkInstance instance.
+            teamtalk_instance: The pytalk.TeamTalkInstance instance.
             payload: An instance of sdk.RemoteFile.
         """
         self.teamtalk = teamtalk_instance
@@ -24,7 +24,7 @@ class RemoteFile:
         Returns:
             A string representation of the RemoteFile instance.
         """
-        return f"Teamtalk.RemoteFile(file_name={self.file_name}, file_id={self.file_id}, file_size={self.file_size}, username={self.username}, upload_time={self.upload_time})"  # noqa: E501
+        return f"Pytalk.RemoteFile(file_name={self.file_name}, file_id={self.file_id}, file_size={self.file_size}, username={self.username}, upload_time={self.upload_time})"  # noqa: E501
 
     def __getattr__(self, name: str):
         """Returns the value of the specified attribute of the remote file.

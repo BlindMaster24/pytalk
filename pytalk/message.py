@@ -10,7 +10,7 @@ class Message:
         """Initializes a Message instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             msg: The message.
         """
         self.teamtalk_instance = teamtalk_instance
@@ -33,7 +33,7 @@ class Message:
 
         Args:
             content: The content of the message.
-            **kwargs: Keyword arguments. See teamtalk.TeamTalkInstance.send_message for more information.
+            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for more information.
 
         Returns:
             The message ID of the reply.
@@ -77,7 +77,7 @@ class Message:
         Returns:
             A string representation of the message.
         """
-        return f"teamtalk.{type(self).__name__}(from_id={self.from_id}, to_id={self.to_id}, content={self.content})"
+        return f"pytalk.{type(self).__name__}(from_id={self.from_id}, to_id={self.to_id}, content={self.content})"
 
 
 # make a channel message subclass
@@ -88,7 +88,7 @@ class ChannelMessage(Message):
         """Initializes a ChannelMessage instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             msg: The message payload.
         """
         super().__init__(teamtalk_instance, msg)
@@ -104,7 +104,7 @@ class DirectMessage(Message):
         """Initializes a DirectMessage instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             msg: The message payload.
         """
         super().__init__(teamtalk_instance, msg)
@@ -121,7 +121,7 @@ class BroadcastMessage(Message):
         """Initializes a BroadcastMessage instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             msg: The message payload.
         """
         super().__init__(teamtalk_instance, msg)
@@ -134,7 +134,7 @@ class CustomMessage(Message):
         """Initializes a CustomMessage instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             msg: The message payload.
         """
         super().__init__(teamtalk_instance, msg)

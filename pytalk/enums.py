@@ -107,7 +107,7 @@ class TeamTalkServerInfo:
 
 
 class UserStatusMode:
-    """The status mode of a user. This is used in the teamtalk.TeamTalkInstance.change_status call."""
+    """The status mode of a user. This is used in the pytalk.TeamTalkInstance.change_status call."""
 
     ONLINE = 0
     """The user is online."""

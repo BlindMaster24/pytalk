@@ -15,7 +15,7 @@ class Server:
     """Represents a TeamTalk5 server.
 
     Attributes:
-        teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+        teamtalk_instance: An instance of pytalk.TeamTalkInstance.
         info: The server information.
     """
 
@@ -23,7 +23,7 @@ class Server:
         """Initializes a Server instance.
 
         Args:
-            teamtalk_instance: An instance of teamtalk.TeamTalkInstance.
+            teamtalk_instance: An instance of pytalk.TeamTalkInstance.
             server_info: The server information.
         """
         self.teamtalk_instance = teamtalk_instance
@@ -34,7 +34,7 @@ class Server:
 
         Args:
             content: The content of the message.
-            **kwargs: Keyword arguments. See teamtalk.TeamTalkInstance.send_message for more information.
+            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for more information.
 
         Returns:
             The result of the doTextMessage call.
@@ -66,7 +66,7 @@ class Server:
         """Gets a list of users on the server.
 
         Returns:
-            A list of teamtalk.User instances representing the users on the server.
+            A list of pytalk.User instances representing the users on the server.
         """
         users = self.teamtalk_instance.super.getServerUsers()
         return [TeamTalkUser(self.teamtalk_instance, user) for user in users]
@@ -75,7 +75,7 @@ class Server:
         """Gets a list of channels on the server.
 
         Returns:
-            A list of teamtalk.Channel instances representing the channels on the server.
+            A list of pytalk.Channel instances representing the channels on the server.
         """
         channels = self.teamtalk_instance.super.getServerChannels()
         return [TeamTalkChannel(self.teamtalk_instance, channel) for channel in channels]
@@ -87,7 +87,7 @@ class Server:
             channel_id: The ID of the channel.
 
         Returns:
-            The teamtalk.Channel instance representing the channel with the specified ID.
+            The pytalk.Channel instance representing the channel with the specified ID.
         """
         channel = self.teamtalk_instance.super.getChannel(channel_id)
         return TeamTalkChannel(self.teamtalk_instance, channel)
@@ -99,7 +99,7 @@ class Server:
             user_id: The ID of the user.
 
         Returns:
-            The teamtalk.User instance representing the user with the specified ID.
+            The pytalk.User instance representing the user with the specified ID.
         """
         user = self.teamtalk_instance.super.getUser(user_id)
         return TeamTalkUser(self.teamtalk_instance, user)
@@ -134,7 +134,7 @@ class Server:
             timeout: The time to wait before assuming that getting the servers statistics failed.
 
         Returns:
-            The teamtalk.Statistics instance representing the servers statistics.
+            The pytalk.Statistics instance representing the servers statistics.
         """
         return self.teamtalk_instance.get_server_statistics(timeout)
 
@@ -215,7 +215,7 @@ class Server:
         """Gets the properties of the server.
 
         Returns:
-            A teamtalk.ServerProperties instance representing the properties of the server.
+            A pytalk.ServerProperties instance representing the properties of the server.
         """
         props = self.teamtalk_instance.super.getServerProperties()
         return ServerProperties(self.teamtalk_instance, props)
@@ -224,7 +224,7 @@ class Server:
         """Updates the properties of the server.
 
         Args:
-            properties: The updated properties. See teamtalk.ServerProperties for more information.
+            properties: The updated properties. See pytalk.ServerProperties for more information.
 
         Raises:
             PermissionError: If the bot does not have the permission to update the properties.
@@ -270,7 +270,7 @@ class _ServerPropertiesMeta(type):
 class ServerProperties(metaclass=_ServerPropertiesMeta):
     """Represents the properties of a server.
 
-    This class should not be instantiated directly. Instead, use the teamtalk.Server.get_properties() method. # noqa
+    This class should not be instantiated directly. Instead, use the pytalk.Server.get_properties() method. # noqa
 
     Example:
         >>> server = teamtalk server
@@ -288,7 +288,7 @@ class ServerProperties(metaclass=_ServerPropertiesMeta):
         """Initializes a new instance of the ServerProperties class.
 
         Args:
-            teamtalk_instance: The teamtalk.TeamTalk instance.
+            teamtalk_instance: The pytalk.TeamTalk instance.
             properties: The underlying properties object.
         """
         self.teamtalk_instance = teamtalk_instance

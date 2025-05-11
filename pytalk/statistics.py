@@ -12,7 +12,7 @@ class Statistics:
         Initialize a statistics object.
 
         Args:
-            teamtalk: The teamtalk.TeamTalkInstance instance.
+            teamtalk: The pytalk.TeamTalkInstance instance.
             statistics (sdk.ServerStatistics): The sdk.ServerStatistics object.
         """
         self.teamtalk = teamtalk

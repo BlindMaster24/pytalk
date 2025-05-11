@@ -39,10 +39,10 @@ class TeamTalkInstance(sdk.TeamTalk):
     """Represents a TeamTalk5 instance."""
 
     def __init__(self, bot, server_info: TeamTalkServerInfo) -> None:
-        """Initializes a teamtalk.TeamTalkInstance instance.
+        """Initializes a pytalk.TeamTalkInstance instance.
 
         Args:
-            bot: The teamtalk.Bot instance.
+            bot: The pytalk.Bot instance.
             server_info: The server info for the server we wish to connect to.
         """
         # put the super class in a variable so we can call it later
@@ -332,14 +332,14 @@ class TeamTalkInstance(sdk.TeamTalk):
             bool: True if the user is an admin, False otherwise.
 
         Raises:
-            TypeError: If the user is not of type teamtalk.User or int.
+            TypeError: If the user is not of type pytalk.User or int.
         """
         if isinstance(user, int):
             user = self.super.getUser(user)
             return user.uUserType == sdk.UserType.USERTYPE_ADMIN
         if isinstance(user, TeamTalkUser):
             return user.user_type == sdk.UserType.USERTYPE_ADMIN
-        raise TypeError("User must be of type teamtalk.User or int")
+        raise TypeError("User must be of type pytalk.User or int")
 
     # Subscription stuff
     def subscribe(self, user: TeamTalkUser, subscription: Subscription):
@@ -419,7 +419,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             str: The path of the channel.
 
         Raises:
-            TypeError: If the channel is not of type teamtalk.Channel or int.
+            TypeError: If the channel is not of type pytalk.Channel or int.
             ValueError: If the channel is not found.
         """
         if isinstance(channel, TeamTalkChannel):
@@ -509,7 +509,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             channel: The channel to delete.
 
         Raises:
-            TypeError: If the channel is not of type teamtalk.Channel or int.
+            TypeError: If the channel is not of type pytalk.Channel or int.
             PermissionError: If the bot doesn't have the permission to delete the channel.
             ValueError: If the channel is not found.
 
@@ -545,7 +545,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             operator_password: The operator password of the channel.
 
         Raises:
-            TypeError: If the user or channel is not of type teamtalk.User or int.
+            TypeError: If the user or channel is not of type pytalk.User or int.
             PermissionError: If the bot doesn't have the permission to make a user the channel operator.
             ValueError: If the user or channel is not found.
 
@@ -587,7 +587,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             operator_password: The operator password of the channel.
 
         Raises:
-            TypeError: If the user or channel is not of type teamtalk.User or int.
+            TypeError: If the user or channel is not of type pytalk.User or int.
             PermissionError: If the bot doesn't have the permission to make a user the channel operator.
             ValueError: If the channel or user does not exist.
 
@@ -924,7 +924,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             TimeoutError: If the server statistics are not received with in the given time.
 
         returns:
-            The teamtalk.statistics object representing the servers statistics.
+            The pytalk.statistics object representing the servers statistics.
         """
         sdk._DoQueryServerStats(self._tt)
         result, msg = _waitForEvent(self.super, sdk.ClientEvent.CLIENTEVENT_CMD_SERVERSTATISTICS, timeout)
@@ -952,7 +952,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         _do_after(delay, lambda: self.super.doTextMessage(ctypes.POINTER(sdk.TextMessage)(message)))
 
     async def _process_events(self) -> None:  # noqa: C901
-        """Processes events from the server. This is automatically called by teamtalk.Bot."""
+        """Processes events from the server. This is automatically called by pytalk.Bot."""
         msg = self.super.getMessage(100)
         event = msg.nClientEvent
         if event == sdk.ClientEvent.CLIENTEVENT_USER_STATECHANGE:
@@ -1090,9 +1090,9 @@ class TeamTalkInstance(sdk.TeamTalk):
         if not self.has_permission(Permission.KICK_USERS):
             raise PermissionError("You do not have permission to kick users")
         if not isinstance(user, (TeamTalkUser, int)):
-            raise TypeError("User must be a teamtalk.User or a user id")
+            raise TypeError("User must be a pytalk.User or a user id")
         if not isinstance(channel, (TeamTalkChannel, int)):
-            raise TypeError("Channel must be a teamtalk.Channel or a channel id")
+            raise TypeError("Channel must be a pytalk.Channel or a channel id")
         user_id = user
         if isinstance(user, TeamTalkUser):
             user_id = user.user_id
