@@ -1,7 +1,7 @@
-on_message	teamtalk.Message (either teamtalk.ChannelMessage, teamtalk.DirectMessage, teamtalk.BroadcastMessage)	Called when the bot receives a message.
-on_my_connect	teamtalk.Server	Called when the bot has successfully connected to the teamtalk.Server
-on_my_login	teamtalk.Server	Called when the bot has successfully logged in to the teamtalk.Server
-on_my_logout	teamtalk.Server	Called when the bot has successfully logged out from the teamtalk.Server
-on_my_disconnec	teamtalk.Server	Called when the bot has successfully disconnected from the teamtalk.Server
-on_my_connection_lost	teamtalk.instance	Called when the bot has lost connection to the teamtalk.Server
-on_my_kicked_from_channel	teamtalk.Channel	Called when the bot has been kicked from teamtalk.Channel
+on_message	pytalk.Message (either pytalk.ChannelMessage, pytalk.DirectMessage, pytalk.BroadcastMessage)	Called when the bot receives a message.
+on_my_connect	pytalk.Server	Called when the bot has successfully connected to the pytalk.Server
+on_my_login	pytalk.Server	Called when the bot has successfully logged in to the pytalk.Server
+on_my_logout	pytalk.Server	Called when the bot has successfully logged out from the pytalk.Server
+on_my_disconnec	pytalk.Server	Called when the bot has successfully disconnected from the pytalk.Server
+on_my_connection_lost	pytalk.instance	Called when the bot has lost connection to the pytalk.Server
+on_my_kicked_from_channel	pytalk.Channel	Called when the bot has been kicked from pytalk.Channel

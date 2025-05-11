@@ -1,9 +1,9 @@
-on_channel_new	teamtalk.Channel	Called when a new channel (teamtalk.Channel) is created.
-on_channel_update	teamtalk.Channel	Called when a teamtalk.Channel has been updated.
-on_channel_delete	teamtalk.Channel	Called when a teamtalk.Channel has been deleted from the server.
-on_server_update	teamtalk.Server	Called when a teamtalk.Server has updated its settings.
-on_server_statistics	teamtalk.Statistics	Called when a TeamTalk server sends it's statistics.
-on_file_new	teamtalk.RemoteFile	Called when a file has been uploaded to a channel.
-on_file_delete	teamtalk.RemoteFile	Called when a file has been deleted from a channel.
-on_muxed_audio	teamtalk.MuxedAudioBlock	called when a muxed audio block is recieved, this is used to get audio from all users in the channel at once.
-on_user_audio	teamtalk.AudioBlock	called when an audio block is recieved from a user, this is the audio for an individual user, not the hole server.
+on_channel_new	pytalk.Channel	Called when a new channel (pytalk.Channel) is created.
+on_channel_update	pytalk.Channel	Called when a pytalk.Channel has been updated.
+on_channel_delete	pytalk.Channel	Called when a pytalk.Channel has been deleted from the server.
+on_server_update	pytalk.Server	Called when a pytalk.Server has updated its settings.
+on_server_statistics	pytalk.Statistics	Called when a TeamTalk server sends it's statistics.
+on_file_new	pytalk.RemoteFile	Called when a file has been uploaded to a channel.
+on_file_delete	pytalk.RemoteFile	Called when a file has been deleted from a channel.
+on_muxed_audio	pytalk.MuxedAudioBlock	called when a muxed audio block is recieved, this is used to get audio from all users in the channel at once.
+on_user_audio	pytalk.AudioBlock	called when an audio block is recieved from a user, this is the audio for an individual user, not the hole server.

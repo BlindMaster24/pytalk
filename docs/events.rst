@@ -5,7 +5,7 @@ This page documents the various events that a TeamTalk Bot can listen to.
 
 The tables are grouped by relevance.
 
-For more information, on what each teamtalk.* function does, please refer to the :doc:`/api` documentation.
+For more information, on what each pytalk.* function does, please refer to the :doc:`/api` documentation.
 
 
 How do I use these events?
@@ -13,7 +13,7 @@ How do I use these events?
 
 The events are listed in the following tables. Each event has a name, a list of arguments that are passed to the event handler and a description of what the event is.
 
-To listen to an event, you must use the :func:`teamtalk.bot.event` decorator.
+To listen to an event, you must use the :func:`pytalk.bot.event` decorator.
 
 
 example:
