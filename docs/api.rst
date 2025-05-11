@@ -12,95 +12,95 @@ The following section outlines the API of pytalk.
 Bot
 --------
 
-.. automodule:: teamtalk.bot
+.. automodule:: pytalk.bot
 
-.. autoclass:: teamtalk.bot.TeamTalkBot
+.. autoclass:: pytalk.bot.TeamTalkBot
     :members:
     :exclude-members: event,dispatch
 
-    .. automethod:: teamtalk.bot.TeamTalkBot.event()
+    .. automethod:: pytalk.bot.TeamTalkBot.event()
         :decorator:
 
 
 Enums
 --------
 
-.. automodule:: teamtalk.enums
+.. automodule:: pytalk.enums
     :members:
 
 
 Server
 --------
 
-.. automodule:: teamtalk.server
+.. automodule:: pytalk.server
     :members:
 
 
 Channel
 --------
 
-.. automodule:: teamtalk.channel
+.. automodule:: pytalk.channel
     :members:
 
 
 UserAccount
 --------
 
-.. automodule:: teamtalk.user_account
+.. automodule:: pytalk.user_account
     :members:
 
 
 User
 --------
 
-.. automodule:: teamtalk.user
+.. automodule:: pytalk.user
     :members:
 
 
 Message
 -----------
 
-.. automodule:: teamtalk.message
+.. automodule:: pytalk.message
     :members:
 
 
 Audio Streaming
 --------------------
 
-.. automodule:: teamtalk.streamer
+.. automodule:: pytalk.streamer
     :members:
 
 
 Files
 --------
 
-.. automodule:: teamtalk.tt_file
+.. automodule:: pytalk.tt_file
     :members:
 
 
 Permission
 -------------
 
-.. automodule:: teamtalk.permission
+.. automodule:: pytalk.permission
     :members:
 
 
 Subscriptions
 -------------
 
-.. automodule:: teamtalk.subscription
+.. automodule:: pytalk.subscription
     :members:
 
 
 Exceptions
 ------------
 
-.. automodule:: teamtalk.exceptions
+.. automodule:: pytalk.exceptions
     :members:
 
 
 TeamTalkInstance (low level)
 --------------------------------
 
-.. automodule:: teamtalk.instance
+.. automodule:: pytalk.instance
     :members:
