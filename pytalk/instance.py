@@ -30,7 +30,7 @@ from .channel import Channel as TeamTalkChannel
 from .channel import ChannelType
 from .codec import CodecType
 from .device import SoundDevice
-from .enums import TeamTalkServerInfo, UserStatusMode, UserType
+from .enums import TeamTalkServerInfo, Status, UserType
 from .exceptions import PermissionError
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 from .message import BroadcastMessage, ChannelMessage, CustomMessage, DirectMessage
@@ -144,14 +144,32 @@ class TeamTalkInstance(sdk.TeamTalk):
         """
         self.super.doChangeNickname(sdk.ttstr(nickname))
 
-    def change_status(self, status_mode: UserStatusMode, status_message: str):
-        """Changes the status of the bot.
+    def change_status(self, status_flags: int, status_message: str) -> None:
+        """Changes the status of the bot using combined status flags.
+
+        This method allows setting the user's online mode (online, away, question)
+        and gender simultaneously, while preserving other active status flags
+        (like video/desktop transmission).
 
         Args:
-            status_mode: The status mode.
-            status_message: The status message.
+            status_flags (int): A combined integer value representing the desired
+                                  status mode and gender. This can be constructed
+                                  using the `pytalk.enums.Status` helper class
+                                  (e.g., `Status.online.female`).
+            status_message (str): The status message to display.
         """
-        self.super.doChangeStatus(status_mode, sdk.ttstr(status_message))
+        current_user_obj = self.get_user(self.get_my_user_id())
+        current_full_status_mode = current_user_obj.status_mode
+
+        new_mode_bits = status_flags & Status._MODE_MASK
+        new_gender_bits = status_flags & Status._GENDER_MASK
+
+        other_flags_mask = ~(Status._MODE_MASK | Status._GENDER_MASK)
+        preserved_other_flags = current_full_status_mode & other_flags_mask
+
+        final_status = new_mode_bits | new_gender_bits | preserved_other_flags
+
+        self.super.doChangeStatus(final_status, sdk.ttstr(status_message))
 
     def get_sound_devices(self) -> List[SoundDevice]:
         """Gets the list of available TeamTalk sound devices, marking the default input.

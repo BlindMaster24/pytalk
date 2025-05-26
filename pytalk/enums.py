@@ -106,8 +106,8 @@ class TeamTalkServerInfo:
         return not self.__eq__(other)
 
 
-class UserStatusMode:
-    """The status mode of a user. This is used in the pytalk.TeamTalkInstance.change_status call."""
+class _UserStatusMode:
+    """Internal representation of status modes (mutually exclusive)."""
 
     ONLINE = 0
     """The user is online."""
@@ -116,7 +116,107 @@ class UserStatusMode:
     """The user is away."""
 
     QUESTION = 2
-    """The user has a question"""
+    """The user has a question."""
+
+
+class _Gender:
+    """Internal representation of gender flags (bitwise combinable)."""
+
+    MALE = 0x00000000
+    """Represents a male user status. This corresponds to no specific gender bit being set in the SDK."""
+
+    FEMALE = 0x00000100
+    """Represents a female user status. Corresponds to `sdk.StatusMode.STATUSMODE_FEMALE`."""
+
+    NEUTRAL = 0x00001000
+    """Represents a neutral gender user status. Corresponds to `sdk.StatusMode.STATUSMODE_NEUTRAL`."""
+
+
+class Status:
+    """A helper class to construct combined status values for a user.
+
+    Use `Status.online`, `Status.away`, or `Status.question` properties,
+    then chain them with a gender property (`.male`, `.female`, `.neutral`)
+    to get the final status value for `pytalk.TeamTalkInstance.change_status`.
+
+    Examples:
+        `Status.online.male`
+        `Status.away.female`
+        `Status.question.neutral`
+
+    This class should not be instantiated directly.
+    """
+
+    class _StatusBuilder:
+        """Internal builder for combining status mode and gender."""
+
+        def __init__(self, base_mode_value: int):
+            """Initializes the status builder with a base mode value.
+
+            Args:
+                base_mode_value (int): The base integer value for the status mode.
+            """
+            self._value = base_mode_value
+
+        @property
+        def male(self) -> int:
+            """Represents a male status.
+
+            Returns:
+                int: The combined status integer value.
+            """
+            return self._value | _Gender.MALE
+
+        @property
+        def female(self) -> int:
+            """Represents a female status.
+
+            Returns:
+                int: The combined status integer value.
+            """
+            return self._value | _Gender.FEMALE
+
+        @property
+        def neutral(self) -> int:
+            """Represents a neutral gender status.
+
+            Returns:
+                int: The combined status integer value.
+            """
+            return self._value | _Gender.NEUTRAL
+
+    _MODE_MASK = 0xFF
+    """A bitmask for extracting the status mode from a combined status integer."""
+
+    _GENDER_MASK = _Gender.FEMALE | _Gender.NEUTRAL
+    """A bitmask for extracting the gender bits from a combined status integer."""
+
+    @property
+    def online(self) -> _StatusBuilder:
+        """Sets the user status to 'online'.
+
+        Returns:
+            _StatusBuilder: An internal builder to further specify gender.
+        """
+        return self._StatusBuilder(_UserStatusMode.ONLINE)
+
+    @property
+    def away(self) -> _StatusBuilder:
+        """Sets the user status to 'away'.
+
+        Returns:
+            _StatusBuilder: An internal builder to further specify gender.
+        """
+        return self._StatusBuilder(_UserStatusMode.AWAY)
+
+    @property
+    def question(self) -> _StatusBuilder:
+        """Sets the user status to 'question'.
+
+        Returns:
+            _StatusBuilder: An internal builder to further specify gender.
+        """
+        return self._StatusBuilder(_UserStatusMode.QUESTION)
 
 
 class UserType:

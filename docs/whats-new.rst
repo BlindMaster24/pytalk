@@ -32,6 +32,16 @@ Added
 - Added media file streaming capabilities:
     - Introduced `pytalk.TeamTalkInstance.start_streaming_media_file_to_channel` for streaming local media files to a channel.
     - Introduced `pytalk.TeamTalkInstance.stop_streaming_media_file_to_channel` to stop active media file streaming.
+- Introduced a new `pytalk.enums.Status` helper class for `pytalk.TeamTalkInstance.change_status`:
+    - Allows combining user status modes (e.g., `online`, `away`) with gender properties (`.male`, `.female`, `.neutral`) in a more Pythonic and intuitive manner (e.g., `Status.online.female`).
+
+Improved
+~~~~~~~~
+- The `pytalk.TeamTalkInstance.change_status` method now accepts a combined status integer, intelligently preserving other non-mode/gender related status flags (like video or desktop sharing) when updating.
+
+Fixed
+~~~~~
+- Fixed several linter issues.
 
 :version:`1.5.1` - 2025-05-16
 ---------------------------------
