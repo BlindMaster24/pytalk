@@ -24,6 +24,15 @@ Fixed
 
 - Fixed documentation not being generated correctly.
 
+:version:`1.6.0` - Unreleased
+---------------------------------
+
+Added
+~~~~~
+- Added media file streaming capabilities:
+    - Introduced `pytalk.TeamTalkInstance.start_streaming_media_file_to_channel` for streaming local media files to a channel.
+    - Introduced `pytalk.TeamTalkInstance.stop_streaming_media_file_to_channel` to stop active media file streaming.
+
 :version:`1.5.1` - 2025-05-16
 ---------------------------------
 
