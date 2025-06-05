@@ -24,7 +24,7 @@ Fixed
 
 - Fixed documentation not being generated correctly.
 
-:version:`1.6.0` - Unreleased
+:version:`1.6.0` - 2025-06-05
 ---------------------------------
 
 Added

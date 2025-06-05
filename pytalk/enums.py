@@ -148,6 +148,11 @@ class Status:
     """
 
     def __init__(self) -> None:
+        """Prevent direct instantiation of the Status class.
+
+        Raises:
+            TypeError: If an attempt is made to instantiate this class.
+        """
         raise TypeError(
             "Status class is not meant to be instantiated directly. "
             "Use class properties like Status.online, Status.away, or Status.question instead."

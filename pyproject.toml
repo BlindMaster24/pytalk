@@ -1,6 +1,6 @@
 [project]
 name = "py-talk-ex"
-version = "1.5.1"
+version = "1.6.0"
 description = "a simple but powerful pythonic library for making bots for the TeamTalk5 Conferencing System"
 readme = "README.md"
 requires-python = ">=3.11"

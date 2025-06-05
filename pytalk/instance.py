@@ -120,7 +120,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         #        self.super.initSoundOutputDevice(1978)
         if join_channel_on_login:
             channel_id_to_join = self.server_info.join_channel_id
-            if channel_id_to_join > 0: # Only join if channel_id is strictly positive
+            if channel_id_to_join > 0:  # Only join if channel_id is strictly positive
                 self.join_channel_by_id(channel_id_to_join)
             # If channel_id_to_join is 0 or negative, nothing happens.
         self.init_time = time.time()
