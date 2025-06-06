@@ -28,7 +28,7 @@ class User:
         self.teamtalk_instance = teamtalk_instance
         # if user is str, assume it's a username
         if isinstance(user, str):
-            self._user = self.teamtalk_instance.super.getUserByUsername(user)
+            self._user = self.teamtalk_instance.super.getUserByUsername(sdk.ttstr(user))
         # if user is int, assume it's a user_id
         elif isinstance(user, int):
             self._user = self.teamtalk_instance.super.getUser(user)
