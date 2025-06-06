@@ -830,7 +830,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         remote_files = self.get_channel_files(channel_id)
         # loop through files and print the name
         for file in remote_files:
-        if ttstr(file.file_name) == remote_file_name:
+            if ttstr(file.file_name) == remote_file_name:
                 self.download_file_by_id(channel_id, file.file_id, local_file_path)
 
     def download_file_by_id(self, channel_id: int, file_id: int, filepath: str):
