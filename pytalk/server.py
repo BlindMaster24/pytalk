@@ -49,7 +49,7 @@ class Server:
         msg.nFromUserID = self.teamtalk_instance.getMyUserID()
         msg.szFromUsername = self.teamtalk_instance.getMyUserAccount().szUsername
         msg.nToUserID = 0
-        msg.szMessage = content
+        msg.szMessage = sdk.ttstr(content)
         msg.bMore = False
         # get a pointer to our message
         return self.teamtalk_instance._send_message(msg, **kwargs)
