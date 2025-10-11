@@ -35,6 +35,10 @@ Improved
 
 Fixed
 ~~~~~
+- Corrected permission logic in `kick_user` to allow action if user has global kick rights OR is a channel operator.
+- Fixed unreachable code and improved error handling in `kick_user` and `ban_user` methods to provide more specific exceptions.
+- Removed incorrect permission check from the internal `_do_cmd` method, ensuring checks are handled by the specific calling methods.
+- Added missing `TeamTalkException` import in `pytalk/instance.py`.
 - `TeamTalkInstance.connected` and `TeamTalkInstance.logged_in` flags are correctly updated to `False` on `CLIENTEVENT_CMD_MYSELF_KICKED` before reconnection attempts.
 - `Backoff` state is reset only after a complete and successful connection and login sequence in `TeamTalkInstance`.
 

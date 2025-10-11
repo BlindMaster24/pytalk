@@ -32,7 +32,7 @@ from .channel import ChannelType
 from .codec import CodecType
 from .device import SoundDevice
 from .enums import TeamTalkServerInfo, Status, UserType
-from .exceptions import PermissionError
+from .exceptions import PermissionError, TeamTalkException
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 from .message import BroadcastMessage, ChannelMessage, CustomMessage, DirectMessage
 from .permission import Permission
@@ -957,21 +957,26 @@ class TeamTalkInstance(sdk.TeamTalk):
             _log.debug(f"Kicking user {user} from channel {channel}")
             self._do_cmd(user, channel, "_DoKickUser")
         else:  # channel
-            if not self.has_permission(Permission.KICK_USERS_FROM_CHANNEL) and not sdk._IsChannelOperator(
-                self._tt, self.super.getMyUserID(), channel
-            ):
+            channel_id = channel.id if isinstance(channel, TeamTalkChannel) else int(channel)
+            can_kick = self.has_permission(Permission.KICK_USERS_FROM_CHANNEL) or sdk._IsChannelOperator(
+                self._tt, self.super.getMyUserID(), channel_id
+            )
+            if not can_kick:
                 raise PermissionError("You do not have permission to kick users from channels")
-            result = self._do_cmd(user, channel, "_DoKickUser")
+            result = self._do_cmd(user, channel_id, "_DoKickUser")
+
         if result == -1:
-            raise ValueError("Uknown error")
-            cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
-            if not cmd_result:
-                err_nr = cmd_err.nErrorNo
-                if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
-                    raise ValueError("User not found")
-                if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
-                    raise ValueError("Channel not found")
-            return cmd_result
+            raise ValueError("SDK failed to dispatch the kick command.")
+
+        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        if not cmd_result:
+            err_nr = cmd_err.nErrorNo
+            if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
+                raise ValueError("User not found")
+            if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
+                raise ValueError("Channel not found")
+            raise TeamTalkException(f"Kick command failed with server error: {err_nr}")
+        return cmd_result
 
     def ban_user(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int]) -> None:
         """Bans a user from a channel or the server.
@@ -990,13 +995,15 @@ class TeamTalkInstance(sdk.TeamTalk):
         _log.debug(f"Banning user {user} from channel {channel}")
         result = self._do_cmd(user, channel, "_DoBanUser")
         if result == -1:
-            raise ValueError("Uknown error")
-            cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
-            if not cmd_result:
-                err_nr = cmd_err.nErrorNo
-                if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
-                    raise ValueError("User not found")
-            return cmd_result
+            raise ValueError("SDK failed to dispatch the ban command.")
+
+        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        if not cmd_result:
+            err_nr = cmd_err.nErrorNo
+            if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
+                raise ValueError("User not found")
+            raise TeamTalkException(f"Ban command failed with server error: {err_nr}")
+        return cmd_result
 
     def unban_user(self, ip: str, channel: Union[TeamTalkChannel, int]) -> None:
         """Unbans a user from the server.
@@ -1348,8 +1355,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         return self.get_user(self.super.getMyUserID())
 
     def _do_cmd(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int], func) -> None:
-        if not self.has_permission(Permission.KICK_USERS):
-            raise PermissionError("You do not have permission to kick users")
+
         if not isinstance(user, (TeamTalkUser, int)):
             raise TypeError("User must be a pytalk.User or a user id")
         if not isinstance(channel, (TeamTalkChannel, int)):
