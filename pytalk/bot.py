@@ -6,6 +6,7 @@ It's used to create a bot,connect to any amount of TeamTalk servers and dispatch
 
 import asyncio
 import logging
+import sys
 from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from typing_extensions import Self
@@ -73,6 +74,14 @@ class TeamTalkBot:
 
     def run(self):
         """A blocking call that connects to all added servers and handles all events."""
+        if sys.platform.startswith("linux"):
+            try:
+                import uvloop
+
+                uvloop.install()
+                _log.info("Using uvloop as the event loop policy.")
+            except ImportError:
+                pass  # uvloop not installed, using default loop
 
         async def runner():
             async with self:

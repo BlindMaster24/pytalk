@@ -132,4 +132,3 @@ def install() -> None:
     clean()
     print("cleaned.")
     print("Installed")
-    sys.exit(0)

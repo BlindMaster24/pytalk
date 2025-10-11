@@ -16,6 +16,18 @@ This document holds a human-readable list of changes between releases.
 
     For more information on SemVer, please visit http://semver.org/.
 
+:version:`1.6.2` - 2025-10-12
+---------------------------------
+
+Added
+~~~~~
+- Added and enabled `uvloop` on Linux to improve asyncio performance.
+
+Fixed
+~~~~~
+- Fixed a critical `UnboundLocalError` in `pytalk.instance.TeamTalkInstance.kick_user` that occurred when kicking a user from the server.
+- Fixed the SDK downloader (`ttsdk_downloader.py`) exiting prematurely, which prevented the library from importing the SDK on the first run after download.
+
 :version:`1.6.1` - 2025-10-12
 ---------------------------------
 
