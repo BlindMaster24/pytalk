@@ -3,7 +3,8 @@ import time
 import threading
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 
-timestamp = lambda: int(round(time.time() * 1000))
+def timestamp():
+    return int(round(time.time() * 1000))
 DEF_WAIT = 1500
 
 

@@ -3,6 +3,11 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
+import subprocess
+import re
+import os
+import sys
+
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
@@ -10,9 +15,9 @@ project = 'pytalk'
 copyright = '2025, BlindMaster24'
 author = 'BlindMaster24'
 
-# check if the current commit is tagged as a release (vX.Y.Z) and set the version
-import subprocess, re
+sys.path.insert(0, os.path.abspath('..'))
 
+# check if the current commit is tagged as a release (vX.Y.Z) and set the version
 GIT_TAG_OUTPUT = subprocess.check_output(["git", "tag", "--points-at", "HEAD"])
 current_tag = GIT_TAG_OUTPUT.decode().strip()
 if re.match(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$", current_tag):
@@ -21,11 +26,6 @@ else:
     version = "latest"
 
 release = version
-
-import os
-import sys
-
-sys.path.insert(0, os.path.abspath('..'))
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
