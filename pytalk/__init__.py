@@ -11,7 +11,12 @@ from ctypes import *
 try:
     if sys.platform.startswith("linux"):
         # get the full path to the implementation/TeamTalk_DLL folder
-        libpath = os.path.join(os.path.dirname(__file__), "implementation", "TeamTalk_DLL", "libTeamTalk5.so")
+        libpath = os.path.join(
+            os.path.dirname(__file__),
+            "implementation",
+            "TeamTalk_DLL",
+            "libTeamTalk5.so",
+        )
         dll = cdll.LoadLibrary(libpath)
     from .implementation.TeamTalkPy import TeamTalk5 as sdk
 except:
@@ -20,7 +25,12 @@ except:
     download_sdk()
     if sys.platform.startswith("linux"):
         # get the full path to the implementation/TeamTalk_DLL folder
-        libpath = os.path.join(os.path.dirname(__file__), "implementation", "TeamTalk_DLL", "libTeamTalk5.so")
+        libpath = os.path.join(
+            os.path.dirname(__file__),
+            "implementation",
+            "TeamTalk_DLL",
+            "libTeamTalk5.so",
+        )
         dll = cdll.LoadLibrary(libpath)
     from .implementation.TeamTalkPy import TeamTalk5 as sdk
 

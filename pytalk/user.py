@@ -1,10 +1,16 @@
-"""This module defines a User class that represents a user on a TeamTalk server."""
+"""Module defines a User class that represents a user on a TeamTalk server."""
 
 # Union type
-from typing import Union
+from typing import TYPE_CHECKING
 
 from ._utils import _get_tt_obj_attribute
+
+if TYPE_CHECKING:
+    from .channel import Channel as TeamTalkChannel
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
+
+if TYPE_CHECKING:
+    from .instance import TeamTalkInstance
 
 
 class User:
@@ -13,17 +19,22 @@ class User:
     Attributes:
         teamtalk_instance: An instance of pytalk.TeamTalkInstance.
         user: Either a string (username) or an int (user_id) or an instance of sdk.User.
+
     """
 
-    def __init__(self, teamtalk_instance, user: Union[str, int, sdk.User]):
-        """Initializes the User instance.
+    def __init__(
+        self, teamtalk_instance: "TeamTalkInstance", user: str | int | sdk.User
+    ) -> None:
+        """Initialize the User instance.
 
         Args:
             teamtalk_instance: An instance of TeamTalk5.
-            user: Either a string (username) or an int (user_id) or an instance of sdk.User.
+            user: Either a string (username) or an int (user_id) or an instance of
+                sdk.User.
 
         Raises:
             TypeError: If the user argument is not of the expected type.
+
         """
         self.teamtalk_instance = teamtalk_instance
         # if user is str, assume it's a username
@@ -36,28 +47,34 @@ class User:
         elif isinstance(user, sdk.User):
             self._user = user
         else:
-            raise TypeError(f"user must be either a string or an int. Argument has type: {str(type(user))}.")
+            raise TypeError(
+                f"user must be either a string or an int. "
+                f"Argument has type: {str(type(user))}."
+            )
         self.id = self.user_id
         self.channel = self.teamtalk_instance.get_channel(self._user.nChannelID)
         self.server = self.channel.server
 
     def is_me(self) -> bool:
-        """Checks if this user is the bot itself.
+        """Check if this user is the bot itself.
 
         Returns:
             True if this user is the bot itself, False otherwise.
+
         """
         return self.user_id == self.teamtalk_instance.getMyUserID()
 
-    def send_message(self, content: str, **kwargs) -> int:
-        """Sends a text message to this user.
+    def send_message(self, content: str, **kwargs) -> int:  # noqa: ANN003
+        """Send a text message to this user.
 
         Args:
             content: The content of the message.
-            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for more information.
+            **kwargs: Keyword arguments. See pytalk.TeamTalkInstance.send_message for
+                more information.
 
         Returns:
             The ID of the message if successful, or a negative value if unsuccessful.
+
         """
         msg = sdk.TextMessage()
         msg.nMsgType = sdk.TextMsgType.MSGTYPE_USER
@@ -69,14 +86,15 @@ class User:
         # get a pointer to our message
         return self.teamtalk_instance._send_message(msg, **kwargs)
 
-    def move(self, channel) -> bool:
-        """Moves this user to the specified channel.
+    def move(self, channel: "TeamTalkChannel") -> bool:
+        """Move this user to the specified channel.
 
         Args:
             channel: The channel to move this user to.
 
         Returns:
             True if the user was moved successfully, False otherwise.
+
         """
         return self.server.move_user(self, channel)
 
@@ -84,7 +102,9 @@ class User:
         """Kicks this user from the server.
 
         Args:
-            from_server: If True, the user will be kicked from the server. If False, the user will be kicked from the channel. # noqa
+            from_server: If True, the user will be kicked from the server. If
+                False, the user will be kicked from the channel. # noqa
+
         """
         channel_id = 0
         if not from_server:
@@ -95,42 +115,50 @@ class User:
         """Bans this user from the server.
 
         Args:
-            from_server: If True, the user will be banned from the server. If False, the user will be banned from the channel. # noqa
+            from_server: If True, the user will be banned from the server. If
+                False, the user will be banned from the channel. # noqa
+
         """
         channel_id = 0
         if not from_server:
             channel_id = self.channel.id
         self.teamtalk_instance.ban_user(self, channel_id)
 
-    def subscribe(self, subscription) -> None:
-        """Subscribes to the specified subscription.
+    def subscribe(self, subscription: object) -> None:
+        """Subscribe to the specified subscription.
 
         Args:
             subscription: The subscription to subscribe to.
+
         """
         self.teamtalk_instance.subscribe(self, subscription)
 
-    def unsubscribe(self, subscription) -> None:
+    def unsubscribe(self, subscription: object) -> None:
         """Unsubscribes from the specified subscription.
 
         Args:
             subscription: The subscription to unsubscribe from.
+
         """
         self.teamtalk_instance.unsubscribe(self, subscription)
 
-    def is_subscribed(self, subscription) -> bool:
-        """Checks if this user is subscribed to the specified subscription.
+    def is_subscribed(self, subscription: object) -> bool:
+        """Check if this user is subscribed to the specified subscription.
 
         Args:
             subscription: The subscription to check.
 
         Returns:
-            True if the bot is subscribed to the specified subscription from this user, False otherwise.
+            True if the bot is subscribed to the specified subscription from this
+            user, False otherwise.
+
         """
         return self.teamtalk_instance.is_subscribed(self, subscription)
 
-    def __getattr__(self, name: str):
-        """Try to get the specified attribute from self._user if it is not found in self.
+    def __getattr__(self, name: str) -> object:
+        """Try to get the specified attribute from self._user if it is not found in
+
+        self.
 
         Args:
             name: The name of the attribute.
@@ -139,9 +167,10 @@ class User:
             The value of the specified attribute.
 
         Raises:
-            AttributeError: If the specified attribute is not found. This is the default behavior. # noqa
+            AttributeError: If the specified attribute is not found. This is the
+                default behavior. # noqa
+
         """
         if name in dir(self):
             return self.__dict__[name]
-        else:
-            return _get_tt_obj_attribute(self._user, name)
+        return _get_tt_obj_attribute(self._user, name)

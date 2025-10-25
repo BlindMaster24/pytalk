@@ -1,7 +1,8 @@
-"""This module contains the TeamTalkInstance class.
+"""Module contains the TeamTalkInstance class.
 
 The TeamTalkInstance class contains one instance of a connection to a TeamTalkServer.
-It is used to send and receive messages, join and leave channels, and perform other actions.
+It is used to send and receive messages, join and leave channels,
+and perform other actions.
 In addition, it's also here that events are dispatched.
 """
 
@@ -11,12 +12,13 @@ import logging
 import os
 import threading
 import time
-from typing import List, Optional, Union
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from ._utils import (
     _do_after,
-    _waitForCmd,
-    _waitForEvent,
+    _wait_for_cmd,
+    _wait_for_event,
     percent_to_ref_volume,
     ref_volume_to_percent,
 )
@@ -27,12 +29,15 @@ from .audio import (
     _ReleaseUserAudioBlock,
 )
 from .backoff import Backoff
+
+if TYPE_CHECKING:
+    from .bot import TeamTalkBot
 from .channel import Channel as TeamTalkChannel
 from .channel import ChannelType
 from .codec import CodecType
 from .device import SoundDevice
-from .enums import TeamTalkServerInfo, Status, UserType
-from .exceptions import PermissionError, TeamTalkException
+from .enums import Status, TeamTalkServerInfo, UserType
+from .exceptions import PytalkPermissionError, TeamTalkError
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 from .message import BroadcastMessage, ChannelMessage, CustomMessage, DirectMessage
 from .permission import Permission
@@ -44,6 +49,9 @@ from .user import User as TeamTalkUser
 from .user_account import BannedUserAccount as TeamTalkBannedUserAccount
 from .user_account import UserAccount as TeamTalkUserAccount
 
+DEFAULT_SOUND_DEVICE_COUNT = 2
+PERCENTAGE_MIN = 0
+PERCENTAGE_MAX = 100
 
 _log = logging.getLogger(__name__)
 
@@ -52,18 +60,25 @@ class TeamTalkInstance(sdk.TeamTalk):
     """Represents a TeamTalk5 instance."""
 
     def __init__(
-        self, bot, server_info: TeamTalkServerInfo, reconnect: bool = True, backoff_config: Optional[dict] = None
+        self,
+        bot: "TeamTalkBot",
+        server_info: TeamTalkServerInfo,
+        reconnect: bool = True,
+        backoff_config: dict[str, Any] | None = None,
     ) -> None:
-        """Initializes a pytalk.TeamTalkInstance instance.
+        """Initialize a pytalk.TeamTalkInstance instance.
 
         Args:
             bot: The pytalk.Bot instance.
             server_info: The server info for the server we wish to connect to.
-            reconnect (bool): Whether to automatically reconnect to the server if the connection is lost. Defaults to True.
+            reconnect (bool): Whether to automatically reconnect to the server if the
+                connection is lost. Defaults to True.
             backoff_config (Optional[dict]): Configuration for the exponential backoff.
                 Accepts keys like `base`, `exponent`, `max_value`, `max_tries`.
-                These settings govern the retry behavior for both the initial connection sequence
-                and for reconnections after a connection loss. Defaults to `None` (using default Backoff settings).
+                These settings govern the retry behavior for both the initial
+                connection sequence and for reconnections after a connection loss.
+                Defaults to `None` (using default Backoff settings).
+
         """
         # put the super class in a variable so we can call it later
         self.super = super()
@@ -80,7 +95,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         self.init_time = time.time()
         self.user_accounts = []
         self.banned_users = []
-        self._current_input_device_id: Optional[int] = -1
+        self._current_input_device_id: int | None = -1
         self._audio_sdk_lock = threading.Lock()
         self.reconnect_enabled = reconnect
         if backoff_config:
@@ -89,12 +104,13 @@ class TeamTalkInstance(sdk.TeamTalk):
             self._backoff = Backoff()
 
     def connect(self) -> bool:
-        """Makes a single synchronous attempt to connect to the server.
+        """Make a single synchronous attempt to connect to the server.
 
         Waits for a success or failure event from the SDK for this attempt.
 
         Returns:
             bool: True if the connection was successful, False otherwise.
+
         """
         if not self.super.connect(
             sdk.ttstr(self.server_info.host),
@@ -103,7 +119,9 @@ class TeamTalkInstance(sdk.TeamTalk):
             bEncrypted=self.server_info.encrypted,
         ):
             return False
-        result, msg = _waitForEvent(self.super, sdk.ClientEvent.CLIENTEVENT_CON_SUCCESS)
+        result, msg = _wait_for_event(
+            self.super, sdk.ClientEvent.CLIENTEVENT_CON_SUCCESS
+        )
         if not result:
             return False
         self.bot.dispatch("my_connect", self.server)
@@ -112,7 +130,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         return True
 
     def login(self, join_channel_on_login: bool = True) -> bool:
-        """Makes a single synchronous attempt to log in to the server.
+        """Make a single synchronous attempt to log in to the server.
 
         Waits for a success or failure event from the SDK for this attempt.
 
@@ -121,6 +139,7 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Returns:
             bool: True if the login was successful, False otherwise.
+
         """
         self.super.doLogin(
             sdk.ttstr(self.server_info.nickname),
@@ -128,13 +147,14 @@ class TeamTalkInstance(sdk.TeamTalk):
             sdk.ttstr(self.server_info.password),
             sdk.ttstr(self.bot.client_name),
         )
-        result, msg = _waitForEvent(self.super, sdk.ClientEvent.CLIENTEVENT_CMD_MYSELF_LOGGEDIN)
+        result, msg = _wait_for_event(
+            self.super, sdk.ClientEvent.CLIENTEVENT_CMD_MYSELF_LOGGEDIN
+        )
         if not result:
             return False
         self.bot.dispatch("my_login", self.server)
         self.logged_in = True
-        #        self.super.initSoundInputDevice(1978)
-        #        self.super.initSoundOutputDevice(1978)
+
         if join_channel_on_login:
             channel_id_to_join = self.server_info.join_channel_id
             if channel_id_to_join > 0:  # Only join if channel_id is strictly positive
@@ -143,12 +163,12 @@ class TeamTalkInstance(sdk.TeamTalk):
         self.init_time = time.time()
         return True
 
-    def logout(self):
-        """Logs out of the server."""
+    def logout(self) -> None:
+        """Log out of the server."""
         self.super.doLogout()
         self.logged_in = False
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         """Disconnects from the server."""
         self.super.disconnect()
         self.connected = False
@@ -169,12 +189,18 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Returns:
             bool: True if the reconnection and login were successful, False otherwise.
+
         """
-        _log.info(f"Forcing reconnect attempt to {self.server_info.host}...")
+        _log.info("Forcing reconnect attempt to %s...", self.server_info.host)
         # Explicitly disconnect if currently connected to ensure a clean state,
-        # as initial_connect_loop assumes it's starting fresh or from a disconnected state.
+        # as initial_connect_loop assumes it's starting fresh or from a
+        # disconnected state.
         if self.connected:
-            _log.debug(f"Force_reconnect: Instance to {self.server_info.host} is currently connected. Disconnecting first.")
+            _log.debug(
+                "Force_reconnect: Instance to %s is currently "
+                "connected. Disconnecting first.",
+                self.server_info.host,
+            )
             # Run synchronous disconnect in executor to avoid blocking
             await self.bot.loop.run_in_executor(None, self.disconnect)
             # Ensure flags are set correctly after disconnect
@@ -184,16 +210,17 @@ class TeamTalkInstance(sdk.TeamTalk):
         # initial_connect_loop already calls self._backoff.reset() at its beginning.
         return await self.initial_connect_loop()
 
-    def change_nickname(self, nickname: str):
-        """Changes the nickname of the bot.
+    def change_nickname(self, nickname: str) -> None:
+        """Change the nickname of the bot.
 
         Args:
             nickname: The new nickname.
+
         """
         self.super.doChangeNickname(sdk.ttstr(nickname))
 
     def change_status(self, status_flags: int, status_message: str) -> None:
-        """Changes the status of the bot using combined status flags.
+        """Change the status of the bot using combined status flags.
 
         This method allows setting the user's online mode (online, away, question)
         and gender simultaneously, while preserving other active status flags
@@ -205,6 +232,7 @@ class TeamTalkInstance(sdk.TeamTalk):
                                   using the `pytalk.enums.Status` helper class
                                   (e.g., `Status.online.female`).
             status_message (str): The status message to display.
+
         """
         current_user_obj = self.get_user(self.super.getMyUserID())
         current_full_status_mode = current_user_obj.status_mode
@@ -219,36 +247,56 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         self.super.doChangeStatus(final_status, sdk.ttstr(status_message))
 
-    def get_sound_devices(self) -> List[SoundDevice]:
-        """Gets the list of available TeamTalk sound devices, marking the default input.
+    def get_sound_devices(self) -> list[SoundDevice]:
+        """Get the list of available TeamTalk sound devices, marking the default input.
 
         Returns:
             A list of SoundDevice objects representing the available devices.
             Returns an empty list if the SDK call fails.
+
         """
         default_in_id = -1
         try:
             defaults = self.super.getDefaultSoundDevices()
             if defaults:
-                if isinstance(defaults, (tuple, list)) and len(defaults) == 2:
+                if (
+                    isinstance(defaults, (tuple, list))
+                    and len(defaults) == DEFAULT_SOUND_DEVICE_COUNT
+                ):
                     default_in_id, _ = defaults
                 else:
-                    _log.warning(f"Unexpected return type from getDefaultSoundDevices: {type(defaults)}")
+                    _log.warning(
+                        "Unexpected return type from getDefaultSoundDevices: %s",
+                        type(defaults),
+                    )
             else:
-                _log.warning(f"Call to getDefaultSoundDevices returned None or False for instance {self.server_info.host}")
-        except Exception as e:
-            _log.exception(f"Error getting default sound devices for instance {self.server_info.host}: {e}")
+                _log.warning(
+                    "Call to getDefaultSoundDevices returned None or False for "
+                    "instance %s",
+                    self.server_info.host,
+                )
+        except Exception as e:  # noqa: BLE001
+            _log.exception(
+                "Error getting default sound devices for instance %s: %s",
+                self.server_info.host,
+                e,
+            )
 
         sdk_devices = self.super.getSoundDevices()
         if not sdk_devices:
-            _log.warning(f"Failed to get sound device list via superclass for instance {self.server_info.host}")
+            _log.warning(
+                "Failed to get sound device list via superclass for instance %s",
+                self.server_info.host,
+            )
             return []
 
-        devices = [SoundDevice(dev, is_default_input=(dev.nDeviceID == default_in_id)) for dev in sdk_devices]
-        return devices
+        return [
+            SoundDevice(dev, is_default_input=(dev.nDeviceID == default_in_id))
+            for dev in sdk_devices
+        ]
 
-    def get_current_input_device_id(self) -> Optional[int]:
-        """Gets the ID of the currently active input device for this instance.
+    def get_current_input_device_id(self) -> int | None:
+        """Get the ID of the currently active input device for this instance.
 
         Note:
             This returns the ID that was stored when the input device was
@@ -257,11 +305,12 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Returns:
             The ID of the current input device, or -1 if not set or unknown.
+
         """
         return self._current_input_device_id
 
-    def set_input_device(self, device_id_or_name: Union[int, str]) -> bool:
-        """Sets and initializes the input device for this instance.
+    def set_input_device(self, device_id_or_name: int | str) -> bool:
+        """Set and initialize the input device for this instance.
 
         Accepts a specific device ID (int) or the string "default" to use the
         system default input device.
@@ -275,80 +324,125 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             ValueError: If the input is not a valid integer or "default".
+
         """
         target_device_id = -1
 
-        if isinstance(device_id_or_name, str) and device_id_or_name.lower() == "default":
-            _log.debug(f"Attempting to set default input device for instance {self.server_info.host}")
+        if (
+            isinstance(device_id_or_name, str)
+            and device_id_or_name.lower() == "default"
+        ):
+            _log.debug(
+                "Attempting to set default input device for instance %s",
+                self.server_info.host,
+            )
             try:
                 defaults = self.super.getDefaultSoundDevices()
-                if defaults and isinstance(defaults, (tuple, list)) and len(defaults) == 2:
+                if (
+                    defaults
+                    and isinstance(defaults, (tuple, list))
+                    and len(defaults) == DEFAULT_SOUND_DEVICE_COUNT
+                ):
                     target_device_id = defaults[0]
                     if target_device_id < 0:
                         _log.error(
-                            f"System returned invalid default input device ID ({target_device_id}) "
-                            f"for instance {self.server_info.host}"
+                            "System returned invalid default input device ID (%s) for "
+                            "instance %s",
+                            target_device_id,
+                            self.server_info.host,
                         )
                         return False
-                    _log.info(f"Resolved 'default' to input device ID: {target_device_id}")
+                    _log.info(
+                        "Resolved 'default' to input device ID: %s",
+                        target_device_id,
+                    )
                 else:
-                    _log.error(f"Could not determine default input device for instance {self.server_info.host}")
+                    _log.error(
+                        "Could not determine default input device for instance %s",
+                        self.server_info.host,
+                    )
                     return False
-            except Exception as e:
-                _log.exception(f"Error getting default sound devices when setting 'default': {e}")
+            except Exception as e:  # noqa: BLE001
+                _log.exception(
+                    "Error getting default sound devices when setting 'default': %s",
+                    e,
+                )
                 return False
         else:
             try:
                 target_device_id = int(device_id_or_name)
-            except ValueError:
-                raise ValueError("Input must be int ID or 'default'")
+                raise ValueError("Input must be int ID or 'default'") from None
             except TypeError:
-                raise ValueError("Input must be int ID or 'default'")
+                raise ValueError("Input must be int ID or 'default'") from None
 
-        _log.debug(f"Setting input device for instance {self.server_info.host} to ID: {target_device_id}")
+        _log.debug(
+            "Setting input device for instance %s to ID: %s",
+            self.server_info.host,
+            target_device_id,
+        )
         sdk._CloseSoundInputDevice(self._tt)
         success = sdk._InitSoundInputDevice(self._tt, target_device_id)
 
         if success:
             self._current_input_device_id = target_device_id
-            _log.info(f"Successfully set input device for instance {self.server_info.host} to ID: {target_device_id}")
+            _log.info(
+                "Successfully set input device for instance %s to ID: %s",
+                self.server_info.host,
+                target_device_id,
+            )
         else:
             self._current_input_device_id = -1
-            _log.error(f"Failed to set input device for instance {self.server_info.host} to ID: {target_device_id}")
+            _log.error(
+                "Failed to set input device for instance %s to ID: %s",
+                self.server_info.host,
+                target_device_id,
+            )
         return success
 
     def enable_voice_transmission(self, enabled: bool) -> bool:
-        """Enables or disables voice transmission state for this instance.
+        """Enable or disable voice transmission state for this instance.
 
         Args:
             enabled: True to enable voice transmission, False to disable it.
 
         Returns:
             True if the SDK call was successful, False otherwise.
+
         """
         action = "Enabling" if enabled else "Disabling"
-        _log.debug(f"{action} voice transmission for instance {self.server_info.host}")
+        _log.debug(
+            "%s voice transmission for instance %s", action, self.server_info.host
+        )
         success = self.super.enableVoiceTransmission(enabled)
         if not success:
-            _log.error(f"Failed to {action.lower()} voice transmission for instance {self.server_info.host}")
+            _log.error(
+                "Failed to %s voice transmission for instance %s",
+                action.lower(),
+                self.server_info.host,
+            )
         return success
 
     def get_input_volume(self) -> int:
-        """Gets the current input gain level as percentage (0-100).
+        """Get the current input gain level as percentage (0-100).
 
         Matches the TeamTalk Qt client's user volume scaling.
 
         Returns:
             int: The volume percentage (0-100). Returns 0 if the SDK call fails.
+
         """
         sdk_gain = sdk._GetSoundInputGainLevel(self._tt)
         if sdk_gain < 0:
-            _log.warning(f"Could not get input gain for instance {self.server_info.host}, SDK returned {sdk_gain}")
+            _log.warning(
+                "Could not get input gain for instance %s, SDK returned %s",
+                self.server_info.host,
+                sdk_gain,
+            )
             return 0
         return ref_volume_to_percent(sdk_gain)
 
     def set_input_volume(self, percentage: int) -> bool:
-        """Sets the input gain level from a percentage (0-100).
+        """Set the input gain level from a percentage (0-100).
 
         Matches the TeamTalk Qt client's user volume scaling.
 
@@ -360,23 +454,32 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             ValueError: If percentage is out of range (0-100).
+
         """
-        if not 0 <= percentage <= 100:
+        if not PERCENTAGE_MIN <= percentage <= PERCENTAGE_MAX:
             raise ValueError("Percentage must be between 0 and 100")
 
         internal_volume = percent_to_ref_volume(float(percentage))
 
         _log.debug(
-            f"Setting input volume for instance {self.server_info.host} to {percentage}% (internal: {internal_volume})"
+            "Setting input volume for instance %s to %s%% (internal: %s)",
+            self.server_info.host,
+            percentage,
+            internal_volume,
         )
         success = sdk._SetSoundInputGainLevel(self._tt, internal_volume)
         if not success:
-            _log.error(f"Failed to set input volume for instance {self.server_info.host}")
+            _log.error(
+                "Failed to set input volume for instance %s",
+                self.server_info.host,
+            )
         return success
 
     # Media File Streaming Functions
-    def start_streaming_media_file_to_channel(self, path: str, video_codec: Optional[sdk.VideoCodec] = None) -> bool:
-        """Starts streaming a media file to the channel.
+    def start_streaming_media_file_to_channel(
+        self, path: str, video_codec: sdk.VideoCodec | None = None
+    ) -> bool:
+        """Start streaming a media file to the channel.
 
         If no video codec is specified, it defaults to WebM VP8.
 
@@ -386,6 +489,7 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Returns:
             bool: True if the streaming started successfully, False otherwise.
+
         """
         if video_codec is None:
             codec_to_use = sdk.VideoCodec()
@@ -393,19 +497,22 @@ class TeamTalkInstance(sdk.TeamTalk):
         else:
             codec_to_use = video_codec
 
-        return self.super.startStreamingMediaFileToChannel(sdk.ttstr(path), ctypes.byref(codec_to_use))
+        return self.super.startStreamingMediaFileToChannel(
+            sdk.ttstr(path), ctypes.byref(codec_to_use)
+        )
 
     def stop_streaming_media_file_to_channel(self) -> bool:
-        """Stops the current media file streaming to the channel.
+        """Stop the current media file streaming to the channel.
 
         Returns:
             bool: True if the streaming stopped successfully, False otherwise.
+
         """
         return self.super.stopStreamingMediaFileToChannel()
 
     # permission stuff
     def has_permission(self, permission: Permission) -> bool:
-        """Checks if the bot has a permission.
+        """Check if the bot has a permission.
 
         If the user is an admin, they have all permissions.
 
@@ -414,6 +521,7 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Returns:
             bool: True if the bot has the permission, False otherwise.
+
         """
         user = self.super.getMyUserAccount()
         # first check if they are an admin
@@ -423,15 +531,16 @@ class TeamTalkInstance(sdk.TeamTalk):
         return (user_rights & permission) == permission
 
     def is_admin(self) -> bool:
-        """Checks if the bot is an admin.
+        """Check if the bot is an admin.
 
         Returns:
             bool: True if the bot is an admin, False otherwise.
+
         """
         return self.is_user_admin(self.super.getMyUserID())
 
-    def is_user_admin(self, user: Union[TeamTalkUser, int]) -> bool:
-        """Checks if a user is an admin.
+    def is_user_admin(self, user: TeamTalkUser | int) -> bool:
+        """Check if a user is an admin.
 
         Args:
             user: The user to check.
@@ -441,6 +550,7 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             TypeError: If the user is not of type pytalk.User or int.
+
         """
         if isinstance(user, int):
             user = self.super.getUser(user)
@@ -450,75 +560,81 @@ class TeamTalkInstance(sdk.TeamTalk):
         raise TypeError("User must be of type pytalk.User or int")
 
     # Subscription stuff
-    def subscribe(self, user: TeamTalkUser, subscription: Subscription):
-        """Subscribes to a subscription.
+    def subscribe(self, user: TeamTalkUser, subscription: Subscription) -> None:
+        """Subscribe to a subscription.
 
         Args:
             user: The user to subscribe to.
             subscription: The subscription to subscribe to.
+
         """
         sdk._DoSubscribe(self._tt, user.id, subscription)
 
-    def unsubscribe(self, user: TeamTalkUser, subscription: Subscription):
+    def unsubscribe(self, user: TeamTalkUser, subscription: Subscription) -> None:
         """Unsubscribes from a subscription.
 
         Args:
             user: The user to unsubscribe from.
             subscription: The subscription to unsubscribe from.
+
         """
         sdk._DoUnsubscribe(self._tt, user.id, subscription)
 
     def is_subscribed(self, subscription: Subscription) -> bool:
-        """Checks if the bot is subscribed to a subscription.
+        """Check if the bot is subscribed to a subscription.
 
         Args:
             subscription: The subscription to check.
 
         Returns:
             bool: True if the bot is subscribed to the subscription, False otherwise.
+
         """
         current_subscriptions = self._get_my_user().local_subscriptions
         # it's a bitfield so we can just check if the subscription is in the bitfield
         return (current_subscriptions & subscription) == subscription
 
-    def join_root_channel(self):
-        """Joins the root channel."""
+    def join_root_channel(self) -> None:
+        """Join the root channel."""
         self.join_channel_by_id(self.super.getRootChannelID())
 
-    def join_channel_by_id(self, id: int, password: str = ""):
-        """Joins a channel by its ID.
+    def join_channel_by_id(self, channel_id: int, password: str = "") -> None:
+        """Join a channel by its ID.
 
         Args:
-            id: The ID of the channel to join.
+            channel_id: The ID of the channel to join.
             password: The password of the channel to join.
-        """
-        self.super.doJoinChannelByID(id, sdk.ttstr(password))
 
-    def join_channel(self, channel: TeamTalkChannel):
-        """Joins a channel.
+        """
+        self.super.doJoinChannelByID(channel_id, sdk.ttstr(password))
+
+    def join_channel(self, channel: TeamTalkChannel) -> None:
+        """Join a channel.
 
         Args:
             channel: The channel to join.
+
         """
         self.super.doJoinChannelByID(channel.id, channel.password)
 
-    def leave_channel(self):
+    def leave_channel(self) -> None:
         """Leaves the current channel."""
         self.super.doLeaveChannel()
 
     def get_channel(self, channel_id: int) -> TeamTalkChannel:
-        """Gets a channel by its ID.
+        """Get a channel by its ID.
 
         Args:
             channel_id: The ID of the channel to get.
 
         Returns:
             TeamTalkChannel: The channel.
+
         """
         return TeamTalkChannel(self, channel_id)
 
-    def get_path_from_channel(self, channel: Union[TeamTalkChannel, int]) -> str:
-        """Gets the path of a channel.
+    def get_path_from_channel(self, channel: TeamTalkChannel | int) -> str:
+        """Get the path of a channel.
 
         Args:
             channel: The channel to get the path of.
@@ -529,6 +645,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         Raises:
             TypeError: If the channel is not of type pytalk.Channel or int.
             ValueError: If the channel is not found.
+
         """
         if isinstance(channel, TeamTalkChannel):
             channel = channel.id
@@ -540,7 +657,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         return path.value
 
     def get_channel_from_path(self, path: str) -> TeamTalkChannel:
-        """Gets a channel by its path.
+        """Get a channel by its path.
 
         Args:
             path: The path of the channel to get.
@@ -550,22 +667,25 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             ValueError: If the channel is not found.
+
         """
         result = sdk._GetChannelIDFromPath(self._tt, sdk.ttstr(path))
         if result == 0:
             raise ValueError("Channel not found")
         return TeamTalkChannel(self, result)
 
-    # create a channel. Take in a name, parent channel. Optionally take in a topic, password and channel type
+        # create a channel. Take in a name, parent channel. Optionally take in a topic,
+
+    # password and channel type
     def create_channel(
         self,
         name: str,
-        parent_channel: Union[TeamTalkChannel, int],
+        parent_channel: TeamTalkChannel | int,
         topic: str = "",
         password: str = "",
         channel_type: ChannelType = ChannelType.CHANNEL_DEFAULT,
     ) -> bool:
-        """Creates a channel.
+        """Create a channel.
 
         Args:
             name: The name of the channel to create.
@@ -575,14 +695,18 @@ class TeamTalkInstance(sdk.TeamTalk):
             channel_type: The type of the channel. Defaults to CHANNEL_DEFAULT.
 
         Raises:
-            PermissionError: If the bot does not have permission to create channels.
+            PytalkPermissionError: If the bot does not have permission
+                to create channels.
             ValueError: If the channel could not be created.
 
         Returns:
             bool: True if the channel was created, False otherwise.
+
         """
         if not self.has_permission(Permission.MODIFY_CHANNELS):
-            raise PermissionError("The bot does not have permission to create channels")
+            raise PytalkPermissionError(
+                "The bot does not have permission to create channels"
+            )
         if isinstance(parent_channel, TeamTalkChannel):
             parent_channel = parent_channel.id
         new_channel = sdk.Channel()
@@ -595,57 +719,71 @@ class TeamTalkInstance(sdk.TeamTalk):
         result = sdk._DoMakeChannel(self._tt, new_channel)
         if result == -1:
             raise ValueError("Channel could not be created")
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to create channels")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to create channels"
+                )
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_ALREADY_EXISTS:
                 raise ValueError("Channel already exists")
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
-                raise ValueError("Combined channel path is too long. Try using a shorter channel name")
+                raise ValueError(
+                    "Combined channel path is too long. "
+                    "Try using a shorter channel name"
+                )
             if err_nr == sdk.ClientError.CMDERR_INCORRECT_CHANNEL_PASSWORD:
                 raise ValueError("Channel password too long")
         return True
 
-    def delete_channel(self, channel: Union[TeamTalkChannel, int]):
-        """Deletes a channel.
+    def delete_channel(self, channel: TeamTalkChannel | int) -> bool:
+        """Delete a channel.
 
         Args:
             channel: The channel to delete.
 
         Raises:
             TypeError: If the channel is not of type pytalk.Channel or int.
-            PermissionError: If the bot doesn't have the permission to delete the channel.
+            PytalkPermissionError: If the bot doesn't have the permission to delete the
+            channel.
             ValueError: If the channel is not found.
 
         Returns:
             bool: True if the channel was deleted.
+
         """
         if not self.has_permission(Permission.MODIFY_CHANNELS):
-            raise PermissionError("The bot does not have permission to delete channels")
+            raise PytalkPermissionError(
+                "The bot does not have permission to delete channels"
+            )
         if isinstance(channel, TeamTalkChannel):
             channel = channel.id
         result = sdk._DoRemoveChannel(self._tt, channel)
         if result == -1:
             raise ValueError("Channel could not be deleted")
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to delete channels")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to delete channels"
+                )
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
                 raise ValueError("Channel not found.")
         return True
 
     def make_channel_operator(
-        self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkUser, int], operator_password: str = ""
+        self,
+        user: TeamTalkUser | int,
+        channel: TeamTalkUser | int,
+        operator_password: str = "",
     ) -> bool:
-        """Makes a user the channel operator.
+        """Make a user the channel operator.
 
         Args:
             user: The user to make the channel operator.
@@ -654,27 +792,37 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             TypeError: If the user or channel is not of type pytalk.User or int.
-            PermissionError: If the bot doesn't have the permission to make a user the channel operator.
+            PytalkPermissionError: If the bot doesn't have the permission to make a user
+            the channel operator.
             ValueError: If the user or channel is not found.
 
         Returns:
             bool: True if the user was made the channel operator, False otherwise.
+
         """
         if isinstance(user, int):
             user = self.get_user(user)
         if isinstance(channel, int):
             channel = self.get_channel(channel)
-        result = sdk.DoChannelOpEx(self.super, user.id, channel.id, sdk.ttstr(operator_password), True)
+        result = sdk.DoChannelOpEx(
+            self.super, user.id, channel.id, sdk.ttstr(operator_password), True
+        )
         if result == -1:
-            raise PermissionError("The bot does not have the permission to make a user the channel operator")
+            raise PytalkPermissionError(
+                "The bot does not have the permission to make a user the channel "
+                "operator"
+            )
             return False
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to make a user the channel operator")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to make a user the channel "
+                    "operator"
+                )
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
                 raise ValueError("The channel does not exist")
             if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
@@ -685,9 +833,12 @@ class TeamTalkInstance(sdk.TeamTalk):
         return True
 
     def remove_channel_operator(
-        self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkUser, int], operator_password: str = ""
+        self,
+        user: TeamTalkUser | int,
+        channel: TeamTalkUser | int,
+        operator_password: str = "",
     ) -> bool:
-        """Removes a user as the channel operator.
+        """Remove a user as the channel operator.
 
         Args:
             user: The user to make the channel operator.
@@ -696,27 +847,37 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             TypeError: If the user or channel is not of type pytalk.User or int.
-            PermissionError: If the bot doesn't have the permission to make a user the channel operator.
+            PytalkPermissionError: If the bot doesn't have the permission to make a user
+                the channel operator.
             ValueError: If the channel or user does not exist.
 
         Returns:
             bool: True if the user was removed as the channel operator, False otherwise.
+
         """
         if isinstance(user, int):
             user = self.get_user(user)
         if isinstance(channel, int):
             channel = self.get_channel(channel)
-        result = sdk.DoChannelOpEx(self.super, user.id, channel.id, sdk.ttstr(operator_password), False)
+        result = sdk.DoChannelOpEx(
+            self.super, user.id, channel.id, sdk.ttstr(operator_password), False
+        )
         if result == -1:
-            raise PermissionError("The bot does not have the permission to make a user the channel operator")
+            raise PytalkPermissionError(
+                "The bot does not have the permission to make a user the channel "
+                "operator"
+            )
             return False
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to make a user the channel operator")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to make a user the channel "
+                    "operator"
+                )
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
                 raise ValueError("The channel does not exist")
             if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
@@ -727,21 +888,27 @@ class TeamTalkInstance(sdk.TeamTalk):
         return True
 
     def get_user(self, user_id: int) -> TeamTalkUser:
-        """Gets a user by its ID.
+        """Get a user by its ID.
 
         Args:
             user_id: The ID of the user to get.
 
         Returns:
             TeamTalkUser: The user.
+
         """
         return TeamTalkUser(self, user_id)
 
     # user account stuff
     def create_user_account(
-        self, username: str, password: str, usertype: UserType, user_rights: Optional[int] = None, note: str = ""
+        self,
+        username: str,
+        password: str,
+        usertype: UserType,
+        user_rights: int | None = None,
+        note: str = "",
     ) -> bool:
-        """Creates a user account on the server.
+        """Create a user account on the server.
 
         Args:
             username (str): The username for the new account.
@@ -763,8 +930,9 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             ValueError: If username or password is invalid.
-            PermissionError: If the bot lacks permission to create accounts
+            PytalkPermissionError: If the bot lacks permission to create accounts
                 or is not logged in.
+
         """
         account = sdk.UserAccount()
         account.szUsername = sdk.ttstr(username)
@@ -778,19 +946,21 @@ class TeamTalkInstance(sdk.TeamTalk):
         result = sdk._DoNewUserAccount(self._tt, account)
         if result == -1:
             raise ValueError("Username or password is invalid")
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_INVALID_USERNAME:
                 raise ValueError("Username is invalid")
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to create a user account")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to create a user account"
+                )
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
         return True
 
     def delete_user_account(self, username: str) -> bool:
-        """Deletes a user account.
+        """Delete a user account.
 
         Args:
             username: The username of the user account to delete.
@@ -800,7 +970,9 @@ class TeamTalkInstance(sdk.TeamTalk):
 
         Raises:
             ValueError: If the username is empty or the user account does not exist.
-            PermissionError: If the user does not have permission to delete a user account.
+            PytalkPermissionError: If the user does not have permission to delete a user
+                account.
+
         """
         if not username:
             raise ValueError("Username is empty")
@@ -808,29 +980,32 @@ class TeamTalkInstance(sdk.TeamTalk):
         result = sdk._DoDeleteUserAccount(self._tt, username)
         if result == -1:
             raise ValueError("User account does not exist")
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_NOT_AUTHORIZED:
-                raise PermissionError("The bot does not have permission to delete a user account")
+                raise PytalkPermissionError(
+                    "The bot does not have permission to delete a user account"
+                )
             if err_nr == sdk.ClientError.CMDERR_NOT_LOGGEDIN:
-                raise PermissionError("The bot is not logged in")
+                raise PytalkPermissionError("The bot is not logged in")
             if err_nr == sdk.ClientError.CMDERR_ACCOUNT_NOT_FOUND:
                 raise ValueError("User account does not exist")
         return True
 
-    async def list_user_accounts(self) -> List[TeamTalkUserAccount]:
-        """Lists all user accounts on the server.
+    async def list_user_accounts(self) -> list[TeamTalkUserAccount]:
+        """List all user accounts on the server.
 
         Returns:
             A list of all user accounts.
 
         Raises:
-            PermissionError: If the bot is not an admin.
+            PytalkPermissionError: If the bot is not an admin.
             ValueError: If an unknown error occurred.
+
         """
         if not self.is_admin():
-            raise PermissionError("The bot is not an admin")
+            raise PytalkPermissionError("The bot is not an admin")
         self.user_accounts = []
         result = sdk._DoListUserAccounts(self._tt, 0, 1000000)
         if result == -1:
@@ -840,27 +1015,30 @@ class TeamTalkInstance(sdk.TeamTalk):
 
     # file stuff
     def upload_file(self, channel_id: int, filepath: str) -> None:
-        """Uploads a local file to a channel.
+        """Upload a local file to a channel.
 
         Args:
             channel_id: The ID of the channel to upload the file to.
             filepath: The path to the local file to upload.
 
         Raises:
-            PermissionError: If the bot does not have permission to upload files.
+            PytalkPermissionError: If the bot does not have permission to upload files.
             ValueError: If the channel ID is less than 0.
             FileNotFoundError: If the local file does not exist.
+
         """
         if not self.has_permission(Permission.UPLOAD_FILES):
-            raise PermissionError("You do not have permission to upload files")
+            raise PytalkPermissionError("You do not have permission to upload files")
         if channel_id < 0:
             raise ValueError("Channel ID must be greater than 0")
         if not os.path.exists(filepath):
             raise FileNotFoundError(f"File {filepath} does not exist")
         self.super.doSendFile(channel_id, sdk.ttstr(filepath))
 
-    def download_file(self, channel_id: int, remote_file_name: str, local_file_path: str) -> None:
-        """Downloads a remote file from a channel.
+    def download_file(
+        self, channel_id: int, remote_file_name: str, local_file_path: str
+    ) -> None:
+        """Download a remote file from a channel.
 
         Args:
             channel_id: The ID of the channel to download the file from.
@@ -868,11 +1046,13 @@ class TeamTalkInstance(sdk.TeamTalk):
             local_file_path: The path to save the file to.
 
         Raises:
-            PermissionError: If the bot does not have permission to download files.
+                        PytalkPermissionError: If the bot does not have permission
+                        to download files.
             ValueError: If the channel ID is less than 0.
+
         """
         if not self.has_permission(Permission.DOWNLOAD_FILES):
-            raise PermissionError("You do not have permission to download files")
+            raise PytalkPermissionError("You do not have permission to download files")
         if channel_id < 0:
             raise ValueError("Channel ID must be greater than 0")
         remote_files = self.get_channel_files(channel_id)
@@ -881,8 +1061,8 @@ class TeamTalkInstance(sdk.TeamTalk):
             if sdk.ttstr(file.file_name) == remote_file_name:
                 self.download_file_by_id(channel_id, file.file_id, local_file_path)
 
-    def download_file_by_id(self, channel_id: int, file_id: int, filepath: str):
-        """Downloads a remote file from a channel by its ID.
+    def download_file_by_id(self, channel_id: int, file_id: int, filepath: str) -> None:
+        """Download a remote file from a channel by its ID.
 
         Args:
             channel_id: The ID of the channel to download the file from.
@@ -890,133 +1070,154 @@ class TeamTalkInstance(sdk.TeamTalk):
             filepath: The path to save the file to.
 
         Raises:
-            PermissionError: If the bot does not have permission to download files.
+            PytalkPermissionError: If the bot does not have permission
+            to download files.
+
         """
         if not self.has_permission(Permission.DOWNLOAD_FILES):
-            raise PermissionError("You do not have permission to download files")
+            raise PytalkPermissionError("You do not have permission to download files")
         self.super.doRecvFile(channel_id, file_id, sdk.ttstr(filepath))
 
-    def delete_file_by_id(self, channel_id: int, file_id: int):
-        """Deletes a remote file from a channel by its ID.
+    def delete_file_by_id(self, channel_id: int, file_id: int) -> None:
+        """Delete a remote file from a channel by its ID.
 
         Args:
             channel_id: The ID of the channel to delete the file from.
             file_id: The ID of the file to delete.
 
         Raises:
-            PermissionError: If the bot does not have permission to delete files.
+            PytalkPermissionError: If the bot does not have permission to delete files.
+
         """
         if not self.is_admin(self.super.getMyUserID()):
-            raise PermissionError("You do not have permission to delete files")
+            raise PytalkPermissionError("You do not have permission to delete files")
         self.super.doDeleteFile(channel_id, file_id)
 
-    def get_channel_files(self, channel_id: int) -> List[RemoteFile]:
-        """Gets a list of remote files in a channel.
+    def get_channel_files(self, channel_id: int) -> list[RemoteFile]:
+        """Get a list of remote files in a channel.
 
         Args:
             channel_id: The ID of the channel to get the files from.
 
         Returns:
             List[RemoteFile]: A list of remote files in the channel.
+
         """
         files = self.super.getChannelFiles(channel_id)
         return [RemoteFile(self, file) for file in files]
 
-    def move_user(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int]) -> None:
-        """Moves a user to a channel.
+    def move_user(
+        self, user: TeamTalkUser | int, channel: TeamTalkChannel | int
+    ) -> None:
+        """Move a user to a channel.
 
         Args:
             user: The user to move.
             channel: The channel to move the user to.
 
         Raises:
-            PermissionError: If the bot does not have permission to move users.
+            PytalkPermissionError: If the bot does not have permission to move users.
             TypeError: If the user or channel is not a subclass of User or Channel.
+
         """
         if not self.has_permission(Permission.MOVE_USERS):
-            raise PermissionError("You do not have permission to move users")
-        _log.debug(f"Moving user {user} to channel {channel}")
+            raise PytalkPermissionError("You do not have permission to move users")
+        _log.debug("Moving user %s to channel %s", user, channel)
         self._do_cmd(user, channel, "_DoMoveUser")
 
-    def kick_user(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int]) -> None:
+    def kick_user(
+        self, user: TeamTalkUser | int, channel: TeamTalkChannel | int
+    ) -> None:
         """Kicks a user from a channel or the server.
 
         Args:
             user: The user to kick.
-            channel: The channel to kick the user from. If 0, the user will be kicked from the server. # noqa
+            channel: The channel to kick the user from. If 0, the user will be kicked
+                from the server. # noqa
 
         Raises:
-            PermissionError: If the bot does not have permission to kick users.
+            PytalkPermissionError: If the bot does not have permission to kick users.
             TypeError: If the user or channel is not a subclass of User or Channel.
             ValueError: If the user or channel is not found.
+
         """
         # first check if we are kicking from channel or server
         if channel == 0:  # server
             if not self.has_permission(Permission.KICK_USERS):
-                raise PermissionError("You do not have permission to kick users")
-            _log.debug(f"Kicking user {user} from channel {channel}")
+                raise PytalkPermissionError("You do not have permission to kick users")
+            _log.debug("Kicking user %s from channel %s", user, channel)
             result = self._do_cmd(user, channel, "_DoKickUser")
         else:  # channel
-            channel_id = channel.id if isinstance(channel, TeamTalkChannel) else int(channel)
-            can_kick = self.has_permission(Permission.KICK_USERS_FROM_CHANNEL) or sdk._IsChannelOperator(
-                self._tt, self.super.getMyUserID(), channel_id
+            channel_id = (
+                channel.id if isinstance(channel, TeamTalkChannel) else int(channel)
             )
+            can_kick = self.has_permission(
+                Permission.KICK_USERS_FROM_CHANNEL
+            ) or sdk._IsChannelOperator(self._tt, self.super.getMyUserID(), channel_id)
             if not can_kick:
-                raise PermissionError("You do not have permission to kick users from channels")
+                raise PytalkPermissionError(
+                    "You do not have permission to kick users from channels"
+                )
             result = self._do_cmd(user, channel_id, "_DoKickUser")
 
         if result == -1:
             raise ValueError("SDK failed to dispatch the kick command.")
 
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
                 raise ValueError("User not found")
             if err_nr == sdk.ClientError.CMDERR_CHANNEL_NOT_FOUND:
                 raise ValueError("Channel not found")
-            raise TeamTalkException(f"Kick command failed with server error: {err_nr}")
+            raise TeamTalkError(f"Kick command failed with server error: {err_nr}")
         return cmd_result
 
-    def ban_user(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int]) -> None:
+    def ban_user(
+        self, user: TeamTalkUser | int, channel: TeamTalkChannel | int
+    ) -> None:
         """Bans a user from a channel or the server.
 
         Args:
             user: The user to ban.
-            channel: The channel to ban the user from. If 0, the user will be banned from the server. # noqa
+            channel: The channel to ban the user from. If 0, the user will be banned
+                from the server. # noqa
 
         Raises:
-            PermissionError: If the bot does not have permission to ban users.
+            PytalkPermissionError: If the bot does not have permission to ban users.
             TypeError: If the user or channel is not a subclass of User or Channel.
             ValueError: If the user is not found.
+
         """
         if not self.has_permission(Permission.BAN_USERS):
-            raise PermissionError("You do not have permission to ban users")
-        _log.debug(f"Banning user {user} from channel {channel}")
+            raise PytalkPermissionError("You do not have permission to ban users")
+        _log.debug("Banning user %s from channel %s", user, channel)
         result = self._do_cmd(user, channel, "_DoBanUser")
         if result == -1:
             raise ValueError("SDK failed to dispatch the ban command.")
 
-        cmd_result, cmd_err = _waitForCmd(self.super, result, 2000)
+        cmd_result, cmd_err = _wait_for_cmd(self.super, result, 2000)
         if not cmd_result:
             err_nr = cmd_err.nErrorNo
             if err_nr == sdk.ClientError.CMDERR_USER_NOT_FOUND:
                 raise ValueError("User not found")
-            raise TeamTalkException(f"Ban command failed with server error: {err_nr}")
+            raise TeamTalkError(f"Ban command failed with server error: {err_nr}")
         return cmd_result
 
-    def unban_user(self, ip: str, channel: Union[TeamTalkChannel, int]) -> None:
+    def unban_user(self, ip: str, channel: TeamTalkChannel | int) -> None:
         """Unbans a user from the server.
 
         Args:
             ip: The IP address of the user to unban.
-            channel: The channel to unban the user from. If 0, the user will be unbanned from the server. # noqa
+            channel: The channel to unban the user from. If 0, the user will be
+                unbanned from the server. # noqa
 
         Raises:
-            PermissionError: If the bot does not have permission to unban users.
+            PytalkPermissionError: If the bot does not have permission to unban users.
+
         """
         if not self.has_permission(Permission.UNBAN_USERS):
-            raise PermissionError("You do not have permission to unban users")
+            raise PytalkPermissionError("You do not have permission to unban users")
         if not isinstance(ip, str):
             raise TypeError("IP must be a string")
         if not isinstance(channel, (TeamTalkChannel, int)):
@@ -1024,21 +1225,22 @@ class TeamTalkInstance(sdk.TeamTalk):
         channel_id = channel
         if isinstance(channel, TeamTalkChannel):
             channel_id = channel.id
-        _log.debug(f"Unbanning user {ip}")
+        _log.debug("Unbanning user %s", ip)
         sdk._DoUnBanUser(self._tt, sdk.ttstr(ip), channel_id)
 
-    async def list_banned_users(self) -> List[TeamTalkBannedUserAccount]:
-        """Lists all banned users.
+    async def list_banned_users(self) -> list[TeamTalkBannedUserAccount]:
+        """List all banned users.
 
         Returns:
             List[BannedUserAccount]: A list of banned users.
 
         Raises:
-            PermissionError: If the bot is not an admin.
+            PytalkPermissionError: If the bot is not an admin.
             ValueError: If an unknown error occurs.
+
         """
         if not self.is_admin():
-            raise PermissionError("The bot is not an admin")
+            raise PytalkPermissionError("The bot is not an admin")
         self.banned_users = []
         result = sdk._DoListBans(self._tt, 0, 0, 1000000)
         if result == -1:
@@ -1047,45 +1249,57 @@ class TeamTalkInstance(sdk.TeamTalk):
         return self.banned_users
 
     def get_server_statistics(self, timeout: int) -> TeamTalkServerStatistics:
-        """
-        Gets the statistics from the server.
+        """Get the statistics from the server.
 
         Args:
-            timeout: The time to wait before assuming that getting the servers statistics failed.
+            timeout: The time to wait before assuming that getting the servers
+                statistics failed.
 
         Raises:
-            TimeoutError: If the server statistics are not received with in the given time.
+            TimeoutError: If the server statistics are not received with in the given
+                time.
 
-        returns:
+        Returns:
             The pytalk.statistics object representing the servers statistics.
+
         """
         sdk._DoQueryServerStats(self._tt)
-        result, msg = _waitForEvent(self.super, sdk.ClientEvent.CLIENTEVENT_CMD_SERVERSTATISTICS, timeout)
+        result, msg = _wait_for_event(
+            self.super, sdk.ClientEvent.CLIENTEVENT_CMD_SERVERSTATISTICS, timeout
+        )
         if not result:
             raise TimeoutError("The request for server statistics timed out.")
         return TeamTalkServerStatistics(self, msg.serverstatistics)
 
-    def _send_message(self, message: sdk.TextMessage, **kwargs):
-        """Sends a message.
+    def _send_message(self, message: sdk.TextMessage, **kwargs: object) -> None:
+        """Send a message.
 
         Args:
             message: The message to send.
-            delay: The delay in seconds before sending the message. Defaults to 0 which means no delay. # noqa
+            delay: The delay in seconds before sending the message. Defaults to 0 which
+                means no delay. # noqa
             **kwargs: Keyword arguments. Reserved for future use.
 
 
         Raises:
             TypeError: If the message is not a subclass of Message.
+
         """
         if not isinstance(message, sdk.TextMessage):
             raise TypeError("Message must be a subclass of sdk.TextMessage")
         if not issubclass(type(message), sdk.TextMessage):
             raise TypeError("Message must be a subclass of sdk.TextMessage")
         delay = kwargs.get("delay", 0)
-        _do_after(delay, lambda: self.super.doTextMessage(ctypes.POINTER(sdk.TextMessage)(message)))
+        _do_after(
+            delay,
+            lambda: self.super.doTextMessage(ctypes.POINTER(sdk.TextMessage)(message)),
+        )
 
-    async def _process_events(self) -> None:  # noqa: C901
-        """Processes events from the server. This is automatically called by pytalk.Bot."""
+    async def _process_events(self) -> None:  # noqa: C901, PLR0911, PLR0912, PLR0915
+        """Process events from the server.
+
+        This is automatically called by pytalk.Bot.
+        """
         msg = self.super.getMessage(100)
         event = msg.nClientEvent
 
@@ -1101,17 +1315,25 @@ class TeamTalkInstance(sdk.TeamTalk):
             self.connected = False
             self.logged_in = False
 
-            self.bot.dispatch("my_kicked_from_channel", TeamTalkChannel(self, msg.nSource))
+            self.bot.dispatch(
+                "my_kicked_from_channel", TeamTalkChannel(self, msg.nSource)
+            )
 
             if self.reconnect_enabled:
                 delay = self._backoff.delay()
                 if delay is not None:
                     _log.info(
-                        f"Kicked from {self.server_info.host}. Attempting to reconnect in {delay:.2f} seconds..."
-                    )  # This existing log is fine
+                        "Kicked from %s. Attempting to reconnect in %.2f seconds...",
+                        self.server_info.host,
+                        delay,
+                    )
                     asyncio.create_task(self._reconnect(delay))
                 else:
-                    _log.error(f"Max retries exceeded for {self.server_info.host} after being kicked. Stopping attempts.")
+                    _log.error(
+                        "Max retries exceeded for %s after being kicked. "
+                        "Stopping attempts.",
+                        self.server_info.host,
+                    )
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CON_LOST:
             self.connected = False
@@ -1121,11 +1343,18 @@ class TeamTalkInstance(sdk.TeamTalk):
                 delay = self._backoff.delay()
                 if delay is not None:
                     _log.info(
-                        f"Connection lost to {self.server_info.host}. Attempting to reconnect in {delay:.2f} seconds..."
+                        "Connection lost to %s. "
+                        "Attempting to reconnect in %.2f seconds...",
+                        self.server_info.host,
+                        delay,
                     )
                     asyncio.create_task(self._reconnect(delay))
                 else:
-                    _log.error(f"Max retries exceeded for {self.server_info.host} after connection loss. Stopping attempts.")
+                    _log.error(
+                        "Max retries exceeded for %s after connection loss. "
+                        "Stopping attempts.",
+                        self.server_info.host,
+                    )
             return
 
         # User Events
@@ -1133,9 +1362,13 @@ class TeamTalkInstance(sdk.TeamTalk):
             user_id = msg.user.nUserID
             current_user_state = msg.user.uUserState
             if current_user_state & sdk.UserState.USERSTATE_VOICE:
-                sdk._EnableAudioBlockEventEx(self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, True)
+                sdk._EnableAudioBlockEventEx(
+                    self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, True
+                )
             else:
-                sdk._EnableAudioBlockEventEx(self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, False)
+                sdk._EnableAudioBlockEventEx(
+                    self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, False
+                )
             return
         if event == sdk.ClientEvent.CLIENTEVENT_USER_AUDIOBLOCK:
             sdk_audio_block_ptr = None
@@ -1143,7 +1376,9 @@ class TeamTalkInstance(sdk.TeamTalk):
             source_id = msg.nSource
             with self._audio_sdk_lock:
                 stream_type_enum = sdk.StreamType(msg.nStreamType)
-                sdk_audio_block_ptr = _AcquireUserAudioBlock(self._tt, stream_type_enum, source_id)
+                sdk_audio_block_ptr = _AcquireUserAudioBlock(
+                    self._tt, stream_type_enum, source_id
+                )
                 if not sdk_audio_block_ptr:
                     return
                 py_sdk_audio_block_struct_instance = sdk.AudioBlock()
@@ -1160,30 +1395,47 @@ class TeamTalkInstance(sdk.TeamTalk):
             py_audio_block_wrapper = None
             try:
                 if source_id == sdk.TT_MUXED_USERID:
-                    py_audio_block_wrapper = MuxedAudioBlock(py_sdk_audio_block_struct_instance)
+                    py_audio_block_wrapper = MuxedAudioBlock(
+                        py_sdk_audio_block_struct_instance
+                    )
                     self.bot.dispatch("muxed_audio", py_audio_block_wrapper)
                 else:
                     user = TeamTalkUser(self, source_id)
-                    py_audio_block_wrapper = AudioBlock(user, py_sdk_audio_block_struct_instance)
+                    py_audio_block_wrapper = AudioBlock(
+                        user, py_sdk_audio_block_struct_instance
+                    )
                     self.bot.dispatch("user_audio", py_audio_block_wrapper)
-            except Exception as e:
-                error_message = (
-                    f"CLIENTEVENT_USER_AUDIOBLOCK: Error during Python wrapper creation or dispatch"
-                    f" for source_id {source_id}. Error: {e}"
+            except Exception as e:  # noqa: BLE001
+                _log.exception(
+                    "CLIENTEVENT_USER_AUDIOBLOCK: Error during Python wrapper "
+                    "creation or dispatch for source_id %s. Error: %s",
+                    source_id,
+                    e,
                 )
-                _log.exception(error_message)
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_JOINED:
             user_joined = TeamTalkUser(self, msg.user)
             if user_joined.id == self.super.getMyUserID():
-                sdk._EnableAudioBlockEventEx(self._tt, sdk.TT_MUXED_USERID, sdk.StreamType.STREAMTYPE_VOICE, None, True)
+                sdk._EnableAudioBlockEventEx(
+                    self._tt,
+                    sdk.TT_MUXED_USERID,
+                    sdk.StreamType.STREAMTYPE_VOICE,
+                    None,
+                    True,
+                )
             self.bot.dispatch("user_join", user_joined, user_joined.channel)
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_LEFT:
             user_left = TeamTalkUser(self, msg.user)
             channel_left_from = TeamTalkChannel(self, msg.nSource)
             if user_left.id == self.super.getMyUserID():
-                sdk._EnableAudioBlockEventEx(self._tt, sdk.TT_MUXED_USERID, sdk.StreamType.STREAMTYPE_VOICE, None, False)
+                sdk._EnableAudioBlockEventEx(
+                    self._tt,
+                    sdk.TT_MUXED_USERID,
+                    sdk.StreamType.STREAMTYPE_VOICE,
+                    None,
+                    False,
+                )
             self.bot.dispatch("user_left", user_left, channel_left_from)
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_LOGGEDIN:
@@ -1235,7 +1487,10 @@ class TeamTalkInstance(sdk.TeamTalk):
             self.bot.dispatch("server_update", self.server)
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_SERVERSTATISTICS:
-            self.bot.dispatch("server_statistics", TeamTalkServerStatistics(self, msg.serverstatistics))
+            self.bot.dispatch(
+                "server_statistics",
+                TeamTalkServerStatistics(self, msg.serverstatistics),
+            )
             return
 
         # User Account Management Events
@@ -1253,7 +1508,11 @@ class TeamTalkInstance(sdk.TeamTalk):
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_BANNEDUSER:  # Internal
             banned_user_struct = sdk.BannedUser()
-            ctypes.memmove(ctypes.byref(banned_user_struct), ctypes.byref(msg.useraccount), ctypes.sizeof(sdk.BannedUser))
+            ctypes.memmove(
+                ctypes.byref(banned_user_struct),
+                ctypes.byref(msg.useraccount),
+                ctypes.sizeof(sdk.BannedUser),
+            )
             banned_user = TeamTalkBannedUserAccount(self, banned_user_struct)
             self.banned_users.append(banned_user)
             return
@@ -1265,10 +1524,10 @@ class TeamTalkInstance(sdk.TeamTalk):
             sdk.ClientEvent.CLIENTEVENT_CMD_SUCCESS,
             sdk.ClientEvent.CLIENTEVENT_AUDIOINPUT,
         ):
-            _log.warning(f"Unhandled event: {event}")
+            _log.warning("Unhandled event: %s", event)
 
     async def initial_connect_loop(self) -> bool:
-        """Attempts to establish an initial connection and login to the server.
+        """Attempt to establish an initial connection and login to the server.
 
         This method will loop, attempting to connect and then log in,
         using the configured backoff strategy if attempts fail.
@@ -1278,84 +1537,139 @@ class TeamTalkInstance(sdk.TeamTalk):
         Returns:
             bool: True if connection and login were successful within retry limits,
                   False otherwise.
+
         """
-        _log.info(f"Attempting initial connection to {self.server_info.host}...")
+        _log.info("Attempting initial connection to %s...", self.server_info.host)
         self._backoff.reset()
 
         while True:
             connected_ok = await self.bot.loop.run_in_executor(None, self.connect)
 
             if connected_ok:
-                _log.info(f"Successfully connected to {self.server_info.host}. Attempting login...")
+                _log.info(
+                    "Successfully connected to %s. Attempting login...",
+                    self.server_info.host,
+                )
                 logged_in_ok = await self.bot.loop.run_in_executor(None, self.login)
                 if logged_in_ok:
-                    _log.info(f"Successfully logged in to {self.server_info.host}.")
+                    _log.info("Successfully logged in to %s.", self.server_info.host)
                     self._backoff.reset()
                     return True
-                else:
-                    _log.warning(f"Login failed for {self.server_info.host} after successful connection.")
+                _log.warning(
+                    "Login failed for %s after successful connection.",
+                    self.server_info.host,
+                )
             else:
-                _log.warning(f"Initial connection attempt failed for {self.server_info.host}.")
+                _log.warning(
+                    "Initial connection attempt failed for %s.",
+                    self.server_info.host,
+                )
 
             delay = self._backoff.delay()
             if delay is None:
-                _log.error(f"Max retries exceeded for initial connection to {self.server_info.host}. Stopping attempts.")
+                _log.error(
+                    "Max retries exceeded for initial connection to %s. "
+                    "Stopping attempts.",
+                    self.server_info.host,
+                )
                 return False
 
-            _log.info(f"Will retry initial connection to {self.server_info.host} in {delay:.2f} seconds...")
+            _log.info(
+                "Will retry initial connection to %s in %.2f seconds...",
+                self.server_info.host,
+                delay,
+            )
             await asyncio.sleep(delay)
 
     async def _reconnect(self, initial_delay: float) -> None:
         # The first delay is already handled by the caller in _process_events
         await asyncio.sleep(initial_delay)
 
-        _log.info(f"Starting reconnection process to {self.server_info.host} after initial delay of {initial_delay:.2f}s.")
+        _log.info(
+            "Starting reconnection process to %s after initial delay of %.2fs.",
+            self.server_info.host,
+            initial_delay,
+        )
 
         # Explicitly disconnect before starting the retry loop to ensure a clean state.
-        _log.debug(f"Attempting explicit disconnect for {self.server_info.host} before reconnection loop.")
+        _log.debug(
+            "Attempting explicit disconnect for %s before reconnection loop.",
+            self.server_info.host,
+        )
         await self.bot.loop.run_in_executor(None, self.disconnect)
-        # Note: self.disconnect() sets self.connected = False and self.logged_in = False (if it wasn't already).
-        # This is important so that the self.connect() call in the loop starts from a known disconnected state.
-        _log.info(f"Explicit disconnect executed for {self.server_info.host}. Proceeding to reconnection attempts.")
+        # Note: self.disconnect() sets self.connected = False and self.logged_in =
+        # False (if it wasn't already).
+        # This is important so that the self.connect() call in the loop starts from a
+        # known disconnected state.
+        _log.info(
+            "Explicit disconnect executed for %s. Proceeding to reconnection attempts.",
+            self.server_info.host,
+        )
 
         while True:
-            _log.info(f"Attempting reconnect to {self.server_info.host} (attempt {self._backoff.attempts})...")
+            _log.info(
+                "Attempting reconnect to %s (attempt %s)...",
+                self.server_info.host,
+                self._backoff.attempts,
+            )
             connected_ok = await self.bot.loop.run_in_executor(None, self.connect)
 
             if connected_ok:
-                _log.info(f"Re-established connection to {self.server_info.host}. Attempting login...")
-                logged_in_ok = await self.bot.loop.run_in_executor(None, self.login, True)
+                _log.info(
+                    "Re-established connection to %s. Attempting login...",
+                    self.server_info.host,
+                )
+                logged_in_ok = await self.bot.loop.run_in_executor(
+                    None, self.login, True
+                )
                 if logged_in_ok:
-                    _log.info(f"Successfully reconnected and logged in to {self.server_info.host}.")
+                    _log.info(
+                        "Successfully reconnected and logged in to %s.",
+                        self.server_info.host,
+                    )
                     self._backoff.reset()  # Reset backoff upon successful login
                     return  # Exit the loop and method on success
-                else:
-                    _log.warning(f"Login failed for {self.server_info.host} after successful reconnect.")
+                _log.warning(
+                    "Login failed for %s after successful reconnect.",
+                    self.server_info.host,
+                )
             else:
-                _log.warning(f"Reconnect attempt {self._backoff.attempts} failed for {self.server_info.host}.")
+                _log.warning(
+                    "Reconnect attempt %s failed for %s.",
+                    self._backoff.attempts,
+                    self.server_info.host,
+                )
 
             next_delay = self._backoff.delay()
 
             if next_delay is None:
-                _log.error(f"Max retries exceeded for reconnecting to {self.server_info.host}. Stopping attempts.")
+                _log.error(
+                    "Max retries exceeded for reconnecting to %s. Stopping attempts.",
+                    self.server_info.host,
+                )
                 return  # Exit the loop and method if max_tries is reached
 
-            _log.info(f"Will retry reconnect to {self.server_info.host} in {next_delay:.2f} seconds...")
+            _log.info(
+                "Will retry reconnect to %s in %.2f seconds...",
+                self.server_info.host,
+                next_delay,
+            )
             await asyncio.sleep(next_delay)
 
-    def _get_channel_info(self, channel_id: int):
+    def _get_channel_info(self, channel_id: int) -> tuple[sdk.Channel, str]:
         _channel = self.getChannel(channel_id)
         _channel_path = sdk.ttstr(self.getChannelPath(channel_id))
         return _channel, _channel_path
 
-    def _get_my_permissions(self):
+    def _get_my_permissions(self) -> int:
         return self.super._GetMyUserRights()
 
-    def _get_my_user(self):
+    def _get_my_user(self) -> TeamTalkUser:
         return self.get_user(self.super.getMyUserID())
 
-    def _do_cmd(self, user: Union[TeamTalkUser, int], channel: Union[TeamTalkChannel, int], func) -> None:
-
+    def _do_cmd(
+        self, user: TeamTalkUser | int, channel: TeamTalkChannel | int, func: Callable
+    ) -> None:
         if not isinstance(user, (TeamTalkUser, int)):
             raise TypeError("User must be a pytalk.User or a user id")
         if not isinstance(channel, (TeamTalkChannel, int)):

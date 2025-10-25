@@ -5,11 +5,19 @@ It's used to create a bot,connect to any amount of TeamTalk servers and dispatch
 """
 
 import asyncio
+import contextlib
 import logging
 import sys
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Tuple, Type, TypeVar, Union
+import types
+from collections.abc import Callable, Coroutine
+from typing import (
+    Any,
+    Self,
+    TypeVar,
+)
 
-from typing_extensions import Self
+if sys.platform.startswith("linux"):
+    import uvloop
 
 from .enums import TeamTalkServerInfo
 from .instance import TeamTalkInstance
@@ -34,56 +42,69 @@ _log = logging.getLogger(__name__)
 class TeamTalkBot:
     """A class that represents a TeamTalk bot."""
 
-    def __init__(self, client_name: Optional[str] = "PyTalk") -> None:
+    def __init__(self, client_name: str | None = "PyTalk") -> None:
         """Initialize a TeamTalkBot object.
 
         Args:
-            client_name (Optional[str]): The name of the client. Defaults to "Teamtalk.py".
+            client_name (Optional[str]): The name of the client. Defaults to
+                "Teamtalk.py".
+
         """
         self.client_name = client_name
         self.loop: asyncio.AbstractEventLoop = _loop
         # hold a list of TeamTalk instances
-        self.teamtalks: List[TeamTalkInstance] = []
-        self._listeners: Dict[str, List[Tuple[asyncio.Future, Callable[..., bool]]]] = {}
+        self.teamtalks: list[TeamTalkInstance] = []
+        self._listeners: dict[
+            str, list[tuple[asyncio.Future, Callable[..., bool]]]
+        ] = {}
 
     async def add_server(
-        self, server: Union[TeamTalkServerInfo, dict], reconnect: bool = True, backoff_config: Optional[dict] = None
+        self,
+        server: TeamTalkServerInfo | dict,
+        reconnect: bool = True,
+        backoff_config: dict | None = None,
     ) -> None:
         """Add a server to the bot.
 
         Args:
-            server: A Union[TeamTalkServerInfo, dict] object representing the server to add.
-                If a dictionary is provided, it will be converted to a TeamTalkServerInfo object.
-            reconnect (bool): Whether to automatically reconnect to the server if the connection is lost. Defaults to True.
-            backoff_config (Optional[dict]): Optional dictionary to customize backoff behavior.
+            server: A Union[TeamTalkServerInfo, dict] object representing the server to
+                add.
+                If a dictionary is provided, it will be converted to a
+                TeamTalkServerInfo object.
+            reconnect (bool): Whether to automatically reconnect to the server if the
+                connection is lost. Defaults to True.
+            backoff_config (Optional[dict]): Optional dictionary to customize backoff
+                behavior.
                 Can contain keys: `base`, `exponent`, `max_value`, `max_tries`.
-                These settings govern the retry behavior for both the initial connection sequence
-                and for reconnections after a connection loss.
+                These settings govern the retry behavior for both the initial
+                connection sequence and for reconnections after a connection loss.
+
         """
         if isinstance(server, dict):
             server = TeamTalkServerInfo.from_dict(server)
-        _log.debug(f"Adding server: {self, server}")
+        _log.debug("Adding server: %s, %s", self, server)
         tt = TeamTalkInstance(self, server, reconnect, backoff_config)
         successful_initial_connection = await tt.initial_connect_loop()
         if not successful_initial_connection:
             _log.error(
-                f"Failed to establish initial connection to server {server.host}:{server.tcp_port} after multiple retries."
-                " Instance will be added but may not be usable."
+                "Failed to establish initial connection to server %s:%s "
+                "after multiple retries. "
+                "Instance will be added but may not be usable.",
+                server.host,
+                server.tcp_port,
             )
         self.teamtalks.append(tt)
 
-    def run(self):
-        """A blocking call that connects to all added servers and handles all events."""
+    def run(self) -> None:
+        """Connect to all added servers and handle all events."""
         if sys.platform.startswith("linux"):
             try:
-                import uvloop
-
                 uvloop.install()
                 _log.info("Using uvloop as the event loop policy.")
-            except ImportError:
-                pass  # uvloop not installed, using default loop
+            except (ImportError, NameError):
+                pass  # uvloop not installed or not imported, using default loop
 
-        async def runner():
+        async def runner() -> None:
             async with self:
                 await self._start()
 
@@ -97,24 +118,26 @@ class TeamTalkBot:
             return
 
     async def _async_setup_hook(self) -> None:
-        # Called whenever the client needs to initialise asyncio objects with a running loop
+        # Called whenever the client needs to initialise asyncio objects with a
+        # running loop
         loop = asyncio.get_running_loop()
         self.loop = loop
 
     async def __aenter__(self) -> Self:
-        """A context manager that is used to get the correct event loop.
+        """Get the correct event loop.
 
         Returns:
             Self: The TeamTalkBot object.
+
         """
         await self._async_setup_hook()
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: types.TracebackType | None,
     ) -> None:
         """When we exit the program, try to disconnect from all servers.
 
@@ -122,18 +145,20 @@ class TeamTalkBot:
             exc_type (Optional[Type[BaseException]]): The exception type.
             exc_value (Optional[BaseException]): The exception value.
             traceback: The traceback.
+
         """
         for teamtalk in self.teamtalks:
             teamtalk.disconnect()
             teamtalk.closeTeamTalk()
 
     def event(self, coro: CoroT, /) -> CoroT:
-        """A decorator that registers an event to listen to.
+        """Register an event to listen to.
 
-        The events must be a :ref:`coroutine <coroutine>`, if not, :exc:`TypeError` is raised.
+                The events must be a :ref:`coroutine <coroutine>`, if not,
+        :exc:`TypeError` is raised.
 
-        Example
-        ---------
+        Example:
+        -------
 
         .. code-block:: python3
 
@@ -142,7 +167,8 @@ class TeamTalkBot:
                 print('Ready!')
 
 
-        See the :doc:`event Reference </events>` for more information and a list of all events.
+                See the :doc:`event Reference </events>` for more information
+                and a list of all events.
 
 
         Args:
@@ -153,6 +179,7 @@ class TeamTalkBot:
 
         Raises:
             TypeError: The coroutine is not a coroutine function.
+
         """
         _log.debug("Registering event %s", coro.__name__)
 
@@ -167,33 +194,37 @@ class TeamTalkBot:
         self,
         coro: Callable[..., Coroutine[Any, Any, Any]],
         event_name: str,
-        *args: Any,
-        **kwargs: Any,
+        *args: object,
+        **kwargs: object,
     ) -> None:
         try:
             _log.debug("Running event %s", event_name)
             await coro(*args, **kwargs)
         except asyncio.CancelledError:
             _log.debug("Event %s was cancelled", event_name)
-        except Exception:
-            try:
+        except Exception:  # noqa: BLE001
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.on_error(event_name, *args, **kwargs)
-            except asyncio.CancelledError:
-                pass
 
     def _schedule_event(
         self,
         coro: Callable[..., Coroutine[Any, Any, Any]],
         event_name: str,
-        *args: Any,
-        **kwargs: Any,
+        *args: object,
+        **kwargs: object,
     ) -> asyncio.Task:
         # print all the events to log
         wrapped = self._run_event(coro, event_name, *args, **kwargs)
         # Schedules the task
         return self.loop.create_task(wrapped, name=f"teamtalk.py: {event_name}")
 
-    async def on_error(self, event_method: str, /, *args: Any, **kwargs: Any) -> None:
+    async def on_error(
+        self,
+        event_method: str,
+        /,
+        *args: object,  # noqa: ARG002
+        **kwargs: object,  # noqa: ARG002
+    ) -> None:
         """|coro| .
 
         The default error handler provided by the client.
@@ -206,16 +237,18 @@ class TeamTalkBot:
             event_method (str): The event method that errored.
             *args (Any): The arguments to the event.
             **kwargs (Any): The keyword arguments to the event.
+
         """
         _log.exception("Ignoring exception in %s", event_method)
 
-    def dispatch(self, event: str, /, *args: Any, **kwargs: Any) -> None:
+    def dispatch(self, event: str, /, *args: object, **kwargs: object) -> None:  # noqa: C901, PLR0912
         """Dispatch an event to all listeners. This is called internally.
 
         Args:
             event (str): The name of the event to dispatch.
             *args (Any): The arguments to the event.
             **kwargs (Any): The keyword arguments to the event.
+
         """
         _log.debug("Dispatching event %s", event)
         method = "on_" + event
@@ -230,7 +263,7 @@ class TeamTalkBot:
 
                 try:
                     result = condition(*args)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001
                     future.set_exception(exc)
                     removed.append(i)
                 else:
@@ -256,7 +289,7 @@ class TeamTalkBot:
         else:
             self._schedule_event(coro, method, *args, **kwargs)
 
-    async def _start(self):
+    async def _start(self) -> None:
         self.dispatch("ready")
         # make a while loop and allow it to run forever
         try:
@@ -274,6 +307,6 @@ class TeamTalkBot:
                 teamtalk.disconnect()
                 self.dispatch("my_disconnect", teamtalk.server)
 
-    async def _do_after_delay(self, delay, func, *args, **kwargs):
+    async def _do_after_delay(self, delay: float, func: Callable) -> None:  # noqa: ARG002
         await asyncio.sleep(delay)
         print("WORKS")

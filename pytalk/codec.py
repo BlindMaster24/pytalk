@@ -1,11 +1,10 @@
 """Provides a dynamic way to access SDK codec identifiers by user-friendly names."""
 
-from typing import Any
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 
 
 class _CodecTypeMeta(type):
-    def __getattr__(cls, name: str) -> Any:
+    def __getattr__(cls, name: str) -> int:
         name_upper = name.upper()
 
         potential_names_in_sdk = [
@@ -28,20 +27,21 @@ class _CodecTypeMeta(type):
     def __dir__(cls) -> list[str]:
         members = set()
         excluded_attributes = [
-            'name',
-            'value',
-            'values',
-            'name_mapping',
-            'value_mapping',
-            'mro',
+            "name",
+            "value",
+            "values",
+            "name_mapping",
+            "value_mapping",
+            "mro",
         ]
 
         for attr_name_sdk in dir(sdk.Codec):
-            if not attr_name_sdk.startswith('_') and attr_name_sdk not in excluded_attributes:
-
+            if (
+                not attr_name_sdk.startswith("_")
+                and attr_name_sdk not in excluded_attributes
+            ):
                 user_friendly_name = attr_name_sdk
-                if user_friendly_name.endswith("_CODEC"):
-                    user_friendly_name = user_friendly_name[:-6]
+                user_friendly_name = user_friendly_name.removesuffix("_CODEC")
 
                 try:
                     resolved_attr = getattr(cls, user_friendly_name)
@@ -50,7 +50,7 @@ class _CodecTypeMeta(type):
                 except AttributeError:
                     pass
 
-        return sorted(list(members))
+        return sorted(members)
 
 
 class CodecType(metaclass=_CodecTypeMeta):
@@ -68,6 +68,5 @@ class CodecType(metaclass=_CodecTypeMeta):
         When using these values with specific SDK functions (like setting
         a video codec for media file streaming), ensure you are passing a codec type
         appropriate for that function's parameter.
-    """
 
-    pass
+    """

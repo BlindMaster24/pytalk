@@ -3,6 +3,6 @@
 from .tools import ttsdk_downloader
 
 
-def download_sdk():
+def download_sdk() -> None:
     """Download the TeamTalk SDK and extract it to the implementation directory."""
     ttsdk_downloader.install()

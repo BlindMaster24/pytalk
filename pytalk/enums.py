@@ -1,45 +1,27 @@
 """TeamTalk enums and constants."""
 
-from typing_extensions import Self
+from typing import Self
 
 
 class TeamTalkServerInfo:
     """Holds the required information to connect and login to a TeamTalk server."""
 
-    def __init__(
-        self,
-        host: str,
-        tcp_port: int,
-        udp_port: int,
-        username: str,
-        password: str = "",
-        encrypted: bool = False,
-        nickname: str = "",
-        join_channel_id: int = -1,
-        join_channel_password: str = "",
-    ) -> None:
+    def __init__(self, data: dict) -> None:
         """Initialize a TeamTalkServerInfo object.
 
         Args:
-            host (str): The host of the TeamTalk server.
-            tcp_port (int): The TCP port of the TeamTalk server.
-            udp_port (int): The UDP port of the TeamTalk server.
-            username (str): The username to login with.
-            password (str): The password to login with. Defaults to "" (no password).
-            encrypted (bool): Whether or not to use encryption. Defaults to False.
-            nickname (str): The nickname to use. Defaults to "teamtalk.py Bot".
-            join_channel_id (int): The channel ID to join. Defaults to -1 (don't join a channel on login). Set to 0 to join the root channel, or a positive integer to join a specific channel. # noqa: E501
-            join_channel_password (str): The password to join the channel with. Defaults to "" (no password).
+            data (dict): A dictionary containing the server information.
+
         """
-        self.host = host
-        self.tcp_port = tcp_port
-        self.udp_port = udp_port
-        self.username = username
-        self.password = password
-        self.encrypted = encrypted
-        self.nickname = nickname if nickname else username
-        self.join_channel_id = join_channel_id
-        self.join_channel_password = join_channel_password
+        self.host = data.get("host")
+        self.tcp_port = data.get("tcp_port")
+        self.udp_port = data.get("udp_port")
+        self.username = data.get("username")
+        self.password = data.get("password", "")
+        self.encrypted = data.get("encrypted", False)
+        self.nickname = data.get("nickname", data.get("username"))
+        self.join_channel_id = data.get("join_channel_id", -1)
+        self.join_channel_password = data.get("join_channel_password", "")
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -50,8 +32,9 @@ class TeamTalkServerInfo:
 
         Returns:
             Self: The constructed object.
+
         """
-        return cls(**data)
+        return cls(data)
 
     # convert this object to a dictionary
     def to_dict(self) -> dict:
@@ -59,6 +42,7 @@ class TeamTalkServerInfo:
 
         Returns:
             dict: The dictionary representation of this object.
+
         """
         return {
             "host": self.host,
@@ -81,6 +65,7 @@ class TeamTalkServerInfo:
 
         Returns:
             bool: Whether or not the objects are equal.
+
         """
         if not isinstance(other, TeamTalkServerInfo):
             return False
@@ -102,8 +87,15 @@ class TeamTalkServerInfo:
 
         Returns:
             bool: Whether or not the objects are not equal.
+
         """
         return not self.__eq__(other)
+
+    def __hash__(self) -> int:
+        """Return the hash value of the object."""
+        return hash(
+            (self.host, self.tcp_port, self.udp_port, self.username, self.encrypted)
+        )
 
 
 class UserStatusMode:
@@ -123,13 +115,16 @@ class _Gender:
     """Internal representation of gender flags (bitwise combinable)."""
 
     MALE = 0x00000000
-    """Represents a male user status. This corresponds to no specific gender bit being set in the SDK."""
+    """Represents a male user status.
+    This corresponds to no specific gender bit being set in the SDK."""
 
     FEMALE = 0x00000100
-    """Represents a female user status. Corresponds to `sdk.StatusMode.STATUSMODE_FEMALE`."""
+    """Represents a female user status.
+    Corresponds to `sdk.StatusMode.STATUSMODE_FEMALE`."""
 
     NEUTRAL = 0x00001000
-    """Represents a neutral gender user status. Corresponds to `sdk.StatusMode.STATUSMODE_NEUTRAL`."""
+    """Represents a neutral gender user status.
+    Corresponds to `sdk.StatusMode.STATUSMODE_NEUTRAL`."""
 
 
 class Status:
@@ -145,6 +140,7 @@ class Status:
         `Status.question.neutral`
 
     This class should not be instantiated directly.
+
     """
 
     def __init__(self) -> None:
@@ -152,20 +148,23 @@ class Status:
 
         Raises:
             TypeError: If an attempt is made to instantiate this class.
+
         """
         raise TypeError(
             "Status class is not meant to be instantiated directly. "
-            "Use class properties like Status.online, Status.away, or Status.question instead."
+            "Use class properties like Status.online, Status.away, or "
+            "Status.question instead."
         )
 
     class _StatusBuilder:
         """Internal builder for combining status mode and gender."""
 
-        def __init__(self, base_mode_value: int):
-            """Initializes the status builder with a base mode value.
+        def __init__(self, base_mode_value: int) -> None:
+            """Initialize the status builder with a base mode value.
 
             Args:
                 base_mode_value (int): The base integer value for the status mode.
+
             """
             self._value = base_mode_value
 
@@ -175,6 +174,7 @@ class Status:
 
             Returns:
                 int: The combined status integer value.
+
             """
             return self._value | _Gender.MALE
 
@@ -184,6 +184,7 @@ class Status:
 
             Returns:
                 int: The combined status integer value.
+
             """
             return self._value | _Gender.FEMALE
 
@@ -193,6 +194,7 @@ class Status:
 
             Returns:
                 int: The combined status integer value.
+
             """
             return self._value | _Gender.NEUTRAL
 
@@ -209,6 +211,7 @@ class Status:
 
         Returns:
             _StatusBuilder: An internal builder to further specify gender.
+
         """
         return cls._StatusBuilder(UserStatusMode.ONLINE)
 
@@ -219,6 +222,7 @@ class Status:
 
         Returns:
             _StatusBuilder: An internal builder to further specify gender.
+
         """
         return cls._StatusBuilder(UserStatusMode.AWAY)
 
@@ -229,6 +233,7 @@ class Status:
 
         Returns:
             _StatusBuilder: An internal builder to further specify gender.
+
         """
         return cls._StatusBuilder(UserStatusMode.QUESTION)
 
@@ -237,7 +242,8 @@ class UserType:
     """The type of a user account."""
 
     DEFAULT = 0x1
-    """The default user type. This only has the permissions set, and no other permissions."""
+    """The default user type.
+    This only has the permissions set, and no other permissions."""
 
     ADMIN = 0x02
     """The admin user type. This has all permissions."""

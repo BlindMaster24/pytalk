@@ -16,6 +16,33 @@ This document holds a human-readable list of changes between releases.
 
     For more information on SemVer, please visit http://semver.org/.
 
+:version:`2.0.0` - unreleased
+---------------------------------
+
+Breaking Changes & Important Notices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- **`TeamTalkServerInfo` constructor now requires a dictionary argument**: The `pytalk.enums.TeamTalkServerInfo` class constructor now exclusively accepts a single dictionary argument for server configuration. Direct instantiation with individual keyword arguments (e.g., `host='...'`, `tcp_port=...`) is no longer supported.
+  **Action Required**: Update all instantiations of `TeamTalkServerInfo` to pass a dictionary containing the server details. For example, change `TeamTalkServerInfo(host='...', tcp_port=...)` to `TeamTalkServerInfo({'host': '...', 'tcp_port': ...})`.
+- **Exceptions `TeamTalkException` and `PermissionError` renamed**: `TeamTalkException` has been renamed to `TeamTalkError`, and `PermissionError` (if previously used from `pytalk`) has been renamed to `PytalkPermissionError`.
+  **Action Required**: Update all references to these exception classes in your code.
+
+
+Added
+~~~~~
+- **Hashability to `TeamTalkServerInfo` objects**: `TeamTalkServerInfo` objects can now be used as dictionary keys or set elements, which can be useful for managing multiple connections.
+
+Changed
+~~~~~~~
+- Refactored Ruff linting and formatting configuration, replacing 'black' pre-commit hook with 'ruff-format'.
+- Conditional import and installation of `uvloop` for Linux platforms to prevent `ModuleNotFoundError` on non-Linux systems.
+
+Fixed
+~~~~~
+- Resolved various Ruff linting errors (TC001, RET504, A002, E501, S602, S607, ARG002, ANN401, ANN003).
+- Ensured all pre-commit hooks pass.
+- Corrected trailing newline in `pyproject.toml`.
+- Fixed logical error in `Statistics.refresh()` method.
+
 :version:`1.6.2` - 2025-10-12
 ---------------------------------
 

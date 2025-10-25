@@ -19,10 +19,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "beautifulsoup4~=4.12",
-    "patool~=3.0",
+    "beautifulsoup4~=4.14",
+    "patool~=4.0",
     "requests~=2.32",
-    "typing-extensions~=4.12",
+    "typing-extensions~=4.15",
     "uvloop; sys_platform == 'linux'",
 ]
 
@@ -38,11 +38,11 @@ docs = [
 ]
 
 [tool.black]
-line-length = 125
+line-length = 88
 skip-string-normalization = true
 
-[tool.flake8]
-ignore = ["E203", "E731", "W503", "D401", "DAR402", "DAR103"]
+[tool.ruff]
+line-length = 88
 exclude = [
     "docs/*",
     "tests/*",
@@ -53,12 +53,19 @@ exclude = [
     "pytalk/implementation/__init__.py",
     "example.py",
 ]
-max-line-length = 125
-count = true
-statistics = true
-max-complexity = 20
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90", "I", "N", "D", "UP", "ANN", "ASYNC", "S", "BLE", "A", "B", "C4", "DTZ", "ERA", "FA", "ICN", "PIE", "PL", "PT", "Q", "RSE", "RET", "SIM", "TID", "TCH", "INT", "ARG", "PERF", "FURB", "G"]
+ignore = ["D203", "D211", "D212", "D213", "ISC001", "S603", "UP022", "N813", "D400", "D415"]
+
+
+
+
+
 
 [dependency-groups]
 dev = [
-    "pre-commit~=4.0.1",
+    "pre-commit~=4.3",
+    "ruff~=0.14",
+    "flake8-logging-format",
 ]

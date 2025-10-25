@@ -1,24 +1,29 @@
 """Provides the SoundDevice class representing a TeamTalk audio device."""
 
-from .implementation.TeamTalkPy import TeamTalk5 as sdk
+from typing import Any
+
 from ._utils import _get_tt_obj_attribute
+from .implementation.TeamTalkPy import TeamTalk5 as sdk
 
 
 class SoundDevice:
     """Represents a sound device available in TeamTalk."""
 
-    def __init__(self, device_struct: sdk.SoundDevice, is_default_input: bool = False):
-        """Initializes a SoundDevice object.
+    def __init__(
+        self, device_struct: sdk.SoundDevice, is_default_input: bool = False
+    ) -> None:
+        """Initialize a SoundDevice object.
 
         Args:
             device_struct: The sdk.SoundDevice struct from the TeamTalk SDK.
             is_default_input: True if this is the default system input device.
+
         """
         self._device_struct = device_struct
         self._is_default_input = is_default_input
 
-    def __getattr__(self, name: str):  # noqa: DAR101, DAR401
-        """Gets an attribute from the underlying SDK structure.
+    def __getattr__(self, name: str) -> Any:  # noqa: DAR101, DAR401, ANN401
+        """Get an attribute from the underlying SDK structure.
 
         Args:
             name: The pythonic name of the attribute to get.
@@ -28,6 +33,7 @@ class SoundDevice:
 
         Raises:
             AttributeError: If the attribute is not found in the structure.
+
         """
         if name == "_device_struct":
             return self.__dict__["_device_struct"]
@@ -39,7 +45,9 @@ class SoundDevice:
                 return sdk.ttstr(value)
             return value
         except AttributeError:
-            raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{name}'"
+            ) from None
 
     @property  # noqa: DAR201
     def id(self) -> int:
@@ -47,6 +55,7 @@ class SoundDevice:
 
         Returns:
             The integer device ID.
+
         """
         return self.device_id
 
@@ -56,6 +65,7 @@ class SoundDevice:
 
         Returns:
             The string name of the device.
+
         """
         return self.device_name
 
@@ -65,6 +75,7 @@ class SoundDevice:
 
         Returns:
             The integer ID of the sound system.
+
         """
         return self.sound_system
 
@@ -74,6 +85,7 @@ class SoundDevice:
 
         Returns:
             True if the device has input channels, False otherwise.
+
         """
         try:
             return self.max_input_channels > 0
@@ -86,6 +98,7 @@ class SoundDevice:
 
         Returns:
             True if the device has output channels, False otherwise.
+
         """
         try:
             return self.max_output_channels > 0
@@ -98,6 +111,7 @@ class SoundDevice:
 
         Returns:
             True if the device was marked as the default input, False otherwise.
+
         """
         return self._is_default_input
 
@@ -106,6 +120,7 @@ class SoundDevice:
 
         Returns:
             A string representation of the SoundDevice instance.
+
         """
         input_output = []
         default_marker = " (Default)" if self.is_default_input else ""
@@ -118,8 +133,14 @@ class SoundDevice:
             pass
         type_str = "/".join(input_output)
         try:
-            return f"SoundDevice(id={self.id}, name='{self.name}{default_marker}', type='{type_str}')"
+            return (
+                f"SoundDevice(id={self.id}, name='{self.name}{default_marker}', "
+                f"type='{type_str}')"
+            )
         except AttributeError:
-            _id = getattr(self._device_struct, 'nDeviceID', 'N/A')
-            _name = sdk.ttstr(getattr(self._device_struct, 'szDeviceName', 'N/A'))
-            return f"SoundDevice(id={_id}, name='{_name}{default_marker}', type='{type_str}')"
+            _id = getattr(self._device_struct, "nDeviceID", "N/A")
+            _name = sdk.ttstr(getattr(self._device_struct, "szDeviceName", "N/A"))
+            return (
+                f"SoundDevice(id={_id}, name='{_name}{default_marker}', "
+                f"type='{type_str}')"
+            )

@@ -9,7 +9,9 @@ class _SubscriptionMeta(type):
         return getattr(sdk.Subscription, name, None)
 
     def __dir__(cls) -> list[str]:
-        return [name[10:] for name in dir(sdk.Subscription) if name.startswith("SUBSCRIBE_")]
+        return [
+            name[10:] for name in dir(sdk.Subscription) if name.startswith("SUBSCRIBE_")
+        ]
 
 
 class Subscription(metaclass=_SubscriptionMeta):
