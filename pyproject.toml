@@ -37,14 +37,14 @@ dependencies = [
 path = "pytalk/__init__.py"
 
 [tool.hatch.envs.default]
-python = "python"
+python = "python3"
 installer = "uv"
 
 [tool.hatch.envs.default.scripts]
 sdk-download = "python -m pytalk.tools.ttsdk_downloader"
 
 [tool.hatch.envs.docs]
-python = "python"
+python = "python3"
 installer = "uv"
 dependencies = [
     "sphinx-sitemap~=2.6",
@@ -105,7 +105,7 @@ ignore_missing_imports = true
 
 
 [tool.hatch.envs.dev]
-python = "python"
+python = "python3"
 installer = "uv"
 dependencies = [
     "pre-commit~=4.3",

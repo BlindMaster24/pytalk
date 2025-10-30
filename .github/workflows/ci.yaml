@@ -30,7 +30,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpulse0 p7zip-full libasound2t64 python-is-python3
+          sudo apt-get install -y libpulse0 p7zip-full libasound2t64
 
       - name: Install system dependencies (Windows)
         if: startsWith(matrix.os, 'windows')
@@ -63,10 +63,13 @@ jobs:
         run: pip install hatch
 
       - name: Install dependencies
+        run: hatch env create default
+
+      - name: Install dev dependencies
         run: hatch env create dev
 
       - name: Download TeamTalk SDK
-        run: hatch run default:sdk-download
+        run: hatch run sdk-download
 
       - name: Run a basic import test
         run: hatch run python -c "import pytalk"
