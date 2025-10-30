@@ -30,7 +30,7 @@ jobs:
         if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpulse0 p7zip-full libasound2 python-is-python3
+          sudo apt-get install -y libpulse0 p7zip-full libasound2t64 python-is-python3
 
       - name: Install system dependencies (Windows)
         if: startsWith(matrix.os, 'windows')
@@ -60,7 +60,7 @@ jobs:
             ${{ runner.os }}-${{ matrix.python-version }}-hatch-
 
       - name: Install Hatch
-        uses: pypa/hatch@install
+        run: pip install hatch
 
       - name: Install dependencies
         run: hatch env create dev

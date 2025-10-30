@@ -10,12 +10,10 @@ build:
   tools:
     python: "3.11"
 
-sphinx:
-   configuration: docs/conf.py
+  jobs:
+    pre_build:
+      - "pip install hatch"
+      - "hatch run sdk-download"
 
-python:
-   install:
-   - method: pip
-     path: .
-     extra_requirements:
-        - docs
+    build:
+      - "hatch run docs:build"
