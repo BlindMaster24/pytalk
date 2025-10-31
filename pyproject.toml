@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "versioningit"]
 build-backend = "hatchling.build"
 
 [project]
@@ -34,7 +34,16 @@ dependencies = [
 "Issue Tracker" = "https://github.com/BlindMaster24/pytalk/issues"
 
 [tool.hatch.version]
-path = "pytalk/__init__.py"
+source = "versioningit"
+
+[tool.versioningit]
+vcs = {}
+write = {file = "pytalk/__init__.py", encoding = "utf-8", template = "__version__ = \"{version}\""}
+
+[tool.hatch.build.hooks.versioningit-onbuild]
+source-file = "pytalk/__init__.py"
+build-file = "pytalk/__init__.py"
+
 
 [tool.hatch.envs.default]
 python = "python3"
