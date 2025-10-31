@@ -42,10 +42,7 @@ Improved
 
 Fixed
 ~~~~~
-<<<<<<< HEAD
-=======
 - **Documentation**: Added `on_my_connect_failed` and `on_my_connect_crypt_error` events. Fixed typo in `on_my_disconnect` event and reordered events.
->>>>>>> origin/master
 - **Platform Compatibility**: Fixed channel path decoding in `pytalk.TeamTalkInstance.get_path_from_channel` for non-Windows platforms.
 - **API Correctness**:
     - Ensured multiple methods consistently return strict `bool` values.

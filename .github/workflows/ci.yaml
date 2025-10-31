@@ -1,4 +1,4 @@
-name: Continuous Integration
+name: CI
 
 on:
   push:
@@ -15,7 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
+  run_tests:
+    name: Run Tests
     strategy:
       fail-fast: false
       matrix:
@@ -77,9 +78,9 @@ jobs:
       - name: Run precommit and all checks
         run: hatch run dev:check
 
-
-  builder_pytalk:
-    needs: [test]
+  build_pytalk:
+    name: Build pytalk
+    needs: [run_tests]
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -103,8 +104,9 @@ jobs:
           path: dist/
           retention-days: 1
 
-  publisher_release:
-    needs: [builder_pytalk]
+  publish_to_pypi:
+    name: Publish to PyPI
+    needs: [build_pytalk]
     if: github.ref_type == 'tag' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

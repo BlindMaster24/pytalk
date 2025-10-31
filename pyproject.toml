@@ -43,14 +43,19 @@ installer = "uv"
 [tool.hatch.envs.default.scripts]
 sdk-download = "python -m pytalk.tools.ttsdk_downloader"
 
-[tool.hatch.envs.docs]
-python = "python3"
-installer = "uv"
-dependencies = [
+[project.optional-dependencies]
+docs = [
     "sphinx-sitemap~=2.6",
     "sphinx~=8.1",
     "sphinxcontrib-napoleon~=0.7",
     "sphinxcontrib-trio~=1.1",
+]
+
+[tool.hatch.envs.docs]
+python = "python3"
+installer = "uv"
+dependencies = [
+    "py-talk-ex[docs]",
 ]
 
 [tool.hatch.envs.docs.scripts]

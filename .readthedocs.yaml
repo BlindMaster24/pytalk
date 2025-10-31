@@ -1,7 +1,7 @@
 version: 2
 
 build:
-  os: ubuntu-22.04
+  os: ubuntu-lts-latest
   apt_packages:
     - libpulse0
     - p7zip-full
@@ -9,11 +9,11 @@ build:
     - libssl-dev
   tools:
     python: "3.11"
-
   jobs:
-    pre_build:
+    post_install:
+      - "pip install .[docs]"
       - "pip install hatch"
       - "hatch run sdk-download"
 
-    build:
-      - "hatch run docs:build"
+sphinx:
+  configuration: docs/conf.py
