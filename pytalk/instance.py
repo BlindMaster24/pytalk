@@ -78,6 +78,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         server_info: TeamTalkServerInfo,
         reconnect: bool = True,
         backoff_config: dict[str, Any] | None = None,
+        enable_muxed_audio: bool = True,
     ) -> None:
         """Initialize a pytalk.TeamTalkInstance instance.
 
@@ -91,6 +92,10 @@ class TeamTalkInstance(sdk.TeamTalk):
                 These settings govern the retry behavior for both the initial
                 connection sequence and for reconnections after a connection loss.
                 Defaults to `None` (using default Backoff settings).
+            enable_muxed_audio (bool): If `True`, the instance will process and dispatch
+                `muxed_audio` events. If `False`, these events will be ignored,
+                reducing CPU overhead for bots that do not need to process mixed audio.
+                Defaults to `True`.
 
         """
         super().__init__()
@@ -106,6 +111,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         self._current_input_device_id: int | None = -1
         self._audio_sdk_lock = threading.Lock()
         self.reconnect_enabled = reconnect
+        self._enable_muxed_audio = enable_muxed_audio
         if backoff_config:
             self._backoff = Backoff(**backoff_config)
         else:
@@ -172,6 +178,20 @@ class TeamTalkInstance(sdk.TeamTalk):
             return False
         self.bot.dispatch("my_login", self.server)
         self.logged_in = True
+
+        if not self._enable_muxed_audio:
+            # Disable muxed audio events at the SDK level
+            sdk._EnableAudioBlockEventEx(
+                self._tt,
+                sdk.TT_MUXED_USERID,
+                sdk.StreamType.STREAMTYPE_VOICE,
+                None,
+                False,
+            )
+            _log.info(
+                "Muxed audio events disabled at SDK level for %s.",
+                self.server_info.host,
+            )
 
         if join_channel_on_login:
             channel_id_to_join = self.server_info.join_channel_id
@@ -1419,7 +1439,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_JOINED:
             user_joined = TeamTalkUser(self, msg.user)
-            if user_joined.id == super().getMyUserID():
+            if user_joined.id == super().getMyUserID() and self._enable_muxed_audio:
                 sdk._EnableAudioBlockEventEx(
                     self._tt,
                     sdk.TT_MUXED_USERID,
@@ -1432,7 +1452,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_LEFT:
             user_left = TeamTalkUser(self, msg.user)
             channel_left_from = TeamTalkChannel(self, msg.nSource)
-            if user_left.id == super().getMyUserID():
+            if user_left.id == super().getMyUserID() and self._enable_muxed_audio:
                 sdk._EnableAudioBlockEventEx(
                     self._tt,
                     sdk.TT_MUXED_USERID,

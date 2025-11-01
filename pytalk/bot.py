@@ -58,6 +58,7 @@ class TeamTalkBot:
         server: TeamTalkServerInfo | dict[str, Any],
         reconnect: bool = True,
         backoff_config: dict[str, Any] | None = None,
+        enable_muxed_audio: bool = True,
     ) -> None:
         """Add a server to the bot.
 
@@ -73,12 +74,18 @@ class TeamTalkBot:
                 Can contain keys: `base`, `exponent`, `max_value`, `max_tries`.
                 These settings govern the retry behavior for both the initial
                 connection sequence and for reconnections after a connection loss.
+            enable_muxed_audio (bool): If `True`, the instance will process and dispatch
+                `muxed_audio` events. If `False`, these events will be ignored,
+                reducing CPU overhead for bots that do not need to process mixed audio.
+                Defaults to `True`.
 
         """
         if isinstance(server, dict):
             server = TeamTalkServerInfo.from_dict(server)
         _log.debug("Adding server: %s, %s", self, server)
-        tt = TeamTalkInstance(self, server, reconnect, backoff_config)
+        tt = TeamTalkInstance(
+            self, server, reconnect, backoff_config, enable_muxed_audio
+        )
         successful_initial_connection = await tt.initial_connect_loop()
         if not successful_initial_connection:
             _log.error(
