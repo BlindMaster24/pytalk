@@ -40,6 +40,13 @@ source = "versioningit"
 vcs = {}
 write = {file = "pytalk/__init__.py", encoding = "utf-8", template = "__version__ = \"{version}\""}
 
+[tool.versioningit.format]
+distance = "{base_version}.post{distance}.dev0"
+dirty = "{base_version}.post{distance}.dev0+dirty.{build_date}"
+distance-dirty = "{base_version}.post{distance}.dev0+dirty.{build_date}"
+clean = "{base_version}"
+
+
 [tool.hatch.build.hooks.versioningit-onbuild]
 source-file = "pytalk/__init__.py"
 build-file = "pytalk/__init__.py"
