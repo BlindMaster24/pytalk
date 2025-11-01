@@ -135,7 +135,7 @@ dependencies = [
     "types-requests",
     "types-beautifulsoup4",
     "pytest~=8.4.2",
-    "pytest-asyncio~=1.2.0",
+    "pytest-asyncio~=0.23.7",
 ]
 
 [tool.hatch.envs.dev.scripts]
@@ -144,6 +144,10 @@ format = "ruff format ."
 typecheck = "mypy pytalk"
 check = "pre-commit run --all-files"
 hooks = "pre-commit install"
+test = "pytest"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 
 
