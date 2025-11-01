@@ -92,6 +92,16 @@ Gitmoji is an emoji guide for commit messages, making them easier to identify an
     -   `[tool.ruff]` & `[tool.mypy]`: Configures the behavior of the Ruff formatter/linter and Mypy type checker.
 -   **`tea.yaml`**: A configuration file for `tea.xyz`, a universal package manager. It specifies the code owners for the project.
 
+### 4.1.1. Versioning with `versioningit` Best Practices
+
+The project utilizes `versioningit` for dynamic versioning based on Git tags. To ensure correct versioning, especially for PyPI publications, adhere to the following best practices:
+
+-   **Annotated Tags are Preferred:** `versioningit` primarily considers annotated Git tags for version calculation. While lightweight tags can be configured, using annotated tags (`git tag -a <version> -m "Release <version>"`) is the recommended and default behavior.
+-   **Avoid `write` Configuration for PyPI Releases:** The `[tool.versioningit.write]` subtable, if configured, modifies files in the working tree. This causes `versioningit` to consider the repository "dirty," leading to versions with local identifiers (e.g., `+dYYYYMMDD`), which are rejected by PyPI. For PyPI-compliant releases, rely on the `onbuild` hook (configured under `[tool.hatch.build.hooks.versioningit-onbuild]`) to inject the version during the build process without altering the Git working tree.
+-   **Ensure Full Git History in CI:** In Continuous Integration (CI) environments (e.g., GitHub Actions), it is crucial to fetch the full Git history. This is achieved by setting `fetch-depth: 0` in the `actions/checkout@v4` step. Without full history, `versioningit` cannot accurately determine the version from Git tags.
+-   **`[tool.versioningit.format]` for Clean Versions:** The `[tool.versioningit.format]` section in `pyproject.toml` should be configured to ensure that when the repository is in an "exact" (tagged) state, the version is formatted without any local identifiers. For example, `clean = "{base_version}"` ensures that a tagged commit results in a clean version number.
+
+
 ### 4.2. Core Library (`pytalk/`)
 
 -   **`__init__.py`**: The main entry point of the `pytalk` package. Its primary role is to ensure the TeamTalk SDK is available. It attempts to import the SDK, and if it fails (i.e., the SDK hasn't been downloaded), it calls `download_sdk.py` to fetch and install it. It also exposes the main classes (`TeamTalkBot`, `Channel`, `User`, etc.) for easy import.
