@@ -156,7 +156,9 @@ class Streamer:
 
         """
         self.stop()
-        self.channel.send_message(f"Searching for {query}...")
+        self.channel.teamtalk.bot.loop.create_task(
+            self.channel.send_message(f"Searching for {query}...")
+        )
         yt_dlp_command = f'yt-dlp -f bestaudio --extract-audio --audio-format best --audio-quality 0 --quiet --get-url "ytsearch:{query}"'  # noqa
         result = subprocess.run(  # noqa: S602
             yt_dlp_command,
@@ -167,7 +169,9 @@ class Streamer:
         )
         song = result.stdout.decode("utf-8").strip()
         if not song:
-            self.channel.send_message("No results found.")
+            self.channel.teamtalk.bot.loop.create_task(
+                self.channel.send_message("No results found.")
+            )
             return
         self.stream(song)
 

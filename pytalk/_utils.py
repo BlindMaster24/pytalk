@@ -1,5 +1,5 @@
+import asyncio
 import math
-import threading
 import time
 from collections.abc import Callable
 from typing import Any, cast
@@ -219,18 +219,6 @@ def _tt_attr_to_py_attr(attr: str) -> str:
     return name
 
 
-def _do_after(delay: float, func: Callable[..., Any]) -> None:
-    def _do_after_thread(delay: float, func: Callable[..., Any]) -> None:
-        initial_time = time.time()
-        while _get_abs_time_diff(initial_time, time.time()) < (delay * 1000):
-            time.sleep(0.001)
-        func()
-
-    threading.Thread(
-        daemon=True,
-        target=_do_after_thread,
-        args=(
-            delay,
-            func,
-        ),
-    ).start()
+async def _do_after(delay: float, func: Callable[..., Any]) -> None:
+    await asyncio.sleep(delay)
+    func()

@@ -16,7 +16,26 @@ This document holds a human-readable list of changes between releases.
 
     For more information on SemVer, please visit http://semver.org/.
 
-:version:`2.0.0` - unreleased
+:version:`2.1.0` - unreleased
+---------------------------------
+
+Breaking Changes & Important Notices
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- `User.send_message` and `Channel.send_message` are now `async` methods and must be awaited.
+
+Added
+~~~~~
+- File transfer progress tracking via a `progress_callback` in `upload_file`, `download_file`, and `download_file_by_id`.
+- `cancel_file_transfer` method to `TeamTalkInstance` to cancel ongoing file transfers.
+- `FileTransfer` class in `pytalk.tt_file` to represent a file transfer in progress.
+- New channel attributes (`disk_quota`, `max_users`, `timeout_media_file_msec`, `timeout_voice_msec`, `op_password`, `user_data`) are now available in `create_channel` and as properties on the `Channel` object.
+- `AudioCodecConfig` and `VideoCodecConfig` classes in `pytalk.codec` for configuring channel codecs.
+
+Improved
+~~~~~~~~
+- Consolidated the delayed execution logic to use `asyncio` instead of `threading`, making the library's concurrency model more consistent.
+
+:version:`2.0.0` - 2025-11-01
 ---------------------------------
 
 Breaking Changes & Important Notices

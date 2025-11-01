@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from .bot import TeamTalkBot
 from .channel import Channel as TeamTalkChannel
 from .channel import ChannelType
-from .codec import CodecType
+from .codec import AudioCodecConfig, CodecType
 from .device import SoundDevice
 from .enums import Status, TeamTalkServerInfo, UserType
 from .exceptions import PytalkPermissionError, TeamTalkError
@@ -54,7 +54,7 @@ from .message import (
 from .permission import Permission
 from .server import Server as TeamTalkServer
 from .statistics import Statistics as TeamTalkServerStatistics
-from .tt_file import RemoteFile
+from .tt_file import FileTransfer, RemoteFile
 
 if TYPE_CHECKING:
     from .subscription import Subscription
@@ -106,6 +106,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         self._current_input_device_id: int | None = -1
         self._audio_sdk_lock = threading.Lock()
         self.reconnect_enabled = reconnect
+        self._file_transfer_callbacks: dict[int, Callable[[FileTransfer], None]] = {}
         if backoff_config:
             self._backoff = Backoff(**backoff_config)
         else:
@@ -688,13 +689,20 @@ class TeamTalkInstance(sdk.TeamTalk):
             raise ValueError("Channel not found")
         return TeamTalkChannel(self, result)
 
-    def create_channel(
+    def create_channel(  # noqa: C901, PLR0913
         self,
         name: str,
         parent_channel: TeamTalkChannel | int,
         topic: str = "",
         password: str = "",
         channel_type: int = ChannelType.DEFAULT,
+        disk_quota: int = 0,
+        max_users: int = 0,
+        timeout_media_file_msec: int = 0,
+        timeout_voice_msec: int = 0,
+        op_password: str = "",
+        user_data: int = 0,
+        audiocfg: AudioCodecConfig | None = None,
     ) -> bool:
         """Create a channel.
 
@@ -704,6 +712,18 @@ class TeamTalkInstance(sdk.TeamTalk):
             topic: The topic of the channel.
             password: The password of the channel. Leave empty for no password.
             channel_type: The type of the channel. Defaults to CHANNEL_DEFAULT.
+            disk_quota: The disk quota for files in the channel.
+                Defaults to 0 (unlimited).
+            max_users: The maximum number of users allowed in the channel.
+                Defaults to 0 (unlimited).
+            timeout_media_file_msec: Timeout for media file transmission in
+                milliseconds. Defaults to 0.
+            timeout_voice_msec: Timeout for voice transmission in milliseconds.
+                Defaults to 0.
+            op_password: The operator password for the channel. Defaults to "".
+            user_data: User-defined data associated with the channel. Defaults to 0.
+            audiocfg: Audio codec configuration. Defaults to None.
+            videocodec: Video codec configuration. Defaults to None.
 
         Raises:
             PytalkPermissionError: If the bot does not have permission
@@ -727,6 +747,16 @@ class TeamTalkInstance(sdk.TeamTalk):
         new_channel.szPassword = sdk.ttstr(password)  # type: ignore [arg-type]
         new_channel.bPassword = password != ""
         new_channel.uChannelType = channel_type
+        new_channel.nDiskQuota = disk_quota
+        new_channel.nMaxUsers = max_users
+        new_channel.nTimeOutTimerMediaFileMSec = timeout_media_file_msec
+        new_channel.nTimeOutTimerVoiceMSec = timeout_voice_msec
+        new_channel.szOpPassword = sdk.ttstr(op_password)  # type: ignore [arg-type]
+        new_channel.nUserData = user_data
+
+        if audiocfg:
+            new_channel.audiocfg = audiocfg.payload
+
         result = sdk._DoMakeChannel(self._tt, new_channel)
         if result == -1:
             raise ValueError("Channel could not be created")
@@ -1039,17 +1069,27 @@ class TeamTalkInstance(sdk.TeamTalk):
         await asyncio.sleep(1)
         return self.user_accounts
 
-    def upload_file(self, channel_id: int, filepath: str) -> None:
+    def upload_file(
+        self,
+        channel_id: int,
+        filepath: str,
+        progress_callback: Callable[[FileTransfer], None] | None = None,
+    ) -> int:
         """Upload a local file to a channel.
 
         Args:
             channel_id: The ID of the channel to upload the file to.
             filepath: The path to the local file to upload.
+            progress_callback: A callback function that will be called with a
+                pytalk.tt_file.FileTransfer object on file transfer progress.
 
         Raises:
             PytalkPermissionError: If the bot does not have permission to upload files.
             ValueError: If the channel ID is less than 0.
             FileNotFoundError: If the local file does not exist.
+
+        Returns:
+            int: The transfer ID for the initiated file transfer.
 
         """
         if not self.has_permission(cast("int", Permission.UPLOAD_FILES)):
@@ -1058,22 +1098,34 @@ class TeamTalkInstance(sdk.TeamTalk):
             raise ValueError("Channel ID must be greater than 0")
         if not Path(filepath).exists():
             raise FileNotFoundError(f"File {filepath} does not exist")
-        super().doSendFile(channel_id, sdk.ttstr(filepath))  # type: ignore [arg-type]
+        transfer_id = super().doSendFile(channel_id, sdk.ttstr(filepath))  # type: ignore [arg-type]
+        if progress_callback:
+            self._file_transfer_callbacks[transfer_id] = progress_callback
+        return transfer_id
 
     def download_file(
-        self, channel_id: int, remote_file_name: str, local_file_path: str
-    ) -> None:
+        self,
+        channel_id: int,
+        remote_file_name: str,
+        local_file_path: str,
+        progress_callback: Callable[[FileTransfer], None] | None = None,
+    ) -> int:
         """Download a remote file from a channel.
 
         Args:
             channel_id: The ID of the channel to download the file from.
             remote_file_name: The name of the remote file to download.
             local_file_path: The path to save the file to.
+            progress_callback: A callback function that will be called with a
+                pytalk.tt_file.FileTransfer object on file transfer progress.
 
         Raises:
                         PytalkPermissionError: If the bot does not have permission
                         to download files.
             ValueError: If the channel ID is less than 0.
+
+        Returns:
+            int: The transfer ID for the initiated file transfer.
 
         """
         if not self.has_permission(cast("int", Permission.DOWNLOAD_FILES)):
@@ -1083,26 +1135,58 @@ class TeamTalkInstance(sdk.TeamTalk):
         remote_files = self.get_channel_files(channel_id)
         for file in remote_files:
             if sdk.ttstr(file.file_name) == remote_file_name:  # type: ignore [arg-type]
-                self.download_file_by_id(
-                    channel_id, cast("int", file.file_id), local_file_path
+                return self.download_file_by_id(
+                    channel_id,
+                    file.file_id,
+                    local_file_path,
+                    progress_callback,
                 )
+        return -1  # Indicate failure to find file
 
-    def download_file_by_id(self, channel_id: int, file_id: int, filepath: str) -> None:
+    def download_file_by_id(
+        self,
+        channel_id: int,
+        file_id: int,
+        filepath: str,
+        progress_callback: Callable[[FileTransfer], None] | None = None,
+    ) -> int:
         """Download a remote file from a channel by its ID.
 
         Args:
             channel_id: The ID of the channel to download the file from.
             file_id: The ID of the file to download.
             filepath: The path to save the file to.
+            progress_callback: A callback function that will be called with a
+                pytalk.tt_file.FileTransfer object on file transfer progress.
 
         Raises:
             PytalkPermissionError: If the bot does not have permission
             to download files.
 
+        Returns:
+            int: The transfer ID for the initiated file transfer.
+
         """
         if not self.has_permission(cast("int", Permission.DOWNLOAD_FILES)):
             raise PytalkPermissionError("You do not have permission to download files")
-        super().doRecvFile(channel_id, file_id, sdk.ttstr(filepath))  # type: ignore [arg-type]
+        transfer_id = super().doRecvFile(channel_id, file_id, sdk.ttstr(filepath))  # type: ignore [arg-type]
+        if progress_callback:
+            self._file_transfer_callbacks[transfer_id] = progress_callback
+        return transfer_id
+
+    def cancel_file_transfer(self, transfer_id: int) -> bool:
+        """Cancel a file transfer.
+
+        Args:
+            transfer_id: The ID of the file transfer to cancel.
+
+        Returns:
+            bool: True if the file transfer was cancelled, False otherwise.
+
+        """
+        if transfer_id in self._file_transfer_callbacks:
+            del self._file_transfer_callbacks[transfer_id]
+        return bool(sdk._CancelFileTransfer(self._tt, transfer_id))
 
     def delete_file_by_id(self, channel_id: int, file_id: int) -> None:
         """Delete a remote file from a channel by its ID.
@@ -1298,7 +1382,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             raise TimeoutError("The request for server statistics timed out.")
         return TeamTalkServerStatistics(self, msg.serverstatistics)
 
-    def _send_message(self, message: sdk.TextMessage, **kwargs: object) -> None:
+    async def _send_message(self, message: sdk.TextMessage, **kwargs: object) -> None:
         """Send a message.
 
         Args:
@@ -1317,7 +1401,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         if not issubclass(type(message), sdk.TextMessage):
             raise TypeError("Message must be a subclass of sdk.TextMessage")
         delay = cast("float", kwargs.get("delay", 0))
-        _do_after(
+        await _do_after(
             delay,
             lambda: self.doTextMessage(message),
         )
@@ -1481,6 +1565,16 @@ class TeamTalkInstance(sdk.TeamTalk):
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_FILE_REMOVE:
             self.bot.dispatch("file_delete", RemoteFile(self, msg.remotefile))
+            return
+
+        if event == sdk.ClientEvent.CLIENTEVENT_FILETRANSFER:
+            transfer_id = msg.filetransfer.nTransferID
+            sdk_file_transfer = sdk.FileTransfer()
+            sdk._GetFileTransferInfo(self._tt, transfer_id, sdk_file_transfer)
+            file_transfer = FileTransfer(sdk_file_transfer)
+            if transfer_id in self._file_transfer_callbacks:
+                self._file_transfer_callbacks[transfer_id](file_transfer)
+            self.bot.dispatch("file_transfer_progress", file_transfer)
             return
 
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_SERVER_UPDATE:

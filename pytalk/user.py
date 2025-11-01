@@ -67,7 +67,7 @@ class User:
         """
         return cast("bool", self.user_id == self.teamtalk_instance.getMyUserID())
 
-    def send_message(self, content: str, **kwargs: object) -> None:  # noqa: ANN003
+    async def send_message(self, content: str, **kwargs: object) -> None:  # noqa: ANN003
         """Send a text message to this user.
 
         Args:
@@ -86,7 +86,7 @@ class User:
         msg.nToUserID = self.user_id
         msg.szMessage = sdk.ttstr(content)  # type: ignore [arg-type]
         msg.bMore = False
-        self.teamtalk_instance._send_message(msg, **kwargs)
+        await self.teamtalk_instance._send_message(msg, **kwargs)
 
     def move(self, channel: "TeamTalkChannel") -> None:
         """Move this user to the specified channel.

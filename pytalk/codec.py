@@ -1,74 +1,122 @@
-"""Provides a dynamic way to access SDK codec identifiers by user-friendly names."""
+"""Provides codec-related classes for pytalk."""
 
 from typing import cast
 
+from ._utils import _get_tt_obj_attribute, _set_tt_obj_attribute
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
+
+
+class AudioCodecConfig:
+    """Represents the audio codec configuration for a channel."""
+
+    def __init__(self, payload: sdk.AudioCodec) -> None:
+        """Initialize an AudioCodecConfig object.
+
+        Args:
+            payload: The underlying sdk.AudioCodec object.
+
+        """
+        self.payload = payload
+
+    def __getattr__(self, name: str) -> object:
+        """Dynamically retrieve attributes from the underlying SDK payload.
+
+        Args:
+            name: The name of the attribute to retrieve.
+
+        Returns:
+            The value of the attribute.
+
+        Raises:
+            AttributeError: If the attribute does not exist.
+
+        """
+        if name in dir(self):
+            return self.__dict__[name]
+        value = _get_tt_obj_attribute(self.payload, name)
+        if isinstance(value, (bytes, sdk.TTCHAR, sdk.TTCHAR_P)):
+            return sdk.ttstr(cast("sdk.TTCHAR_P", value))
+        return value
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Dynamically set attributes on the underlying SDK payload.
+
+        Args:
+            name: The name of the attribute to set.
+            value: The value to set.
+
+        Raises:
+            AttributeError: If the attribute does not exist.
+
+        """
+        if name in dir(self) or name == "payload":
+            self.__dict__[name] = value
+        else:
+            _get_tt_obj_attribute(self.payload, name)  # Check if attribute exists
+            _set_tt_obj_attribute(self.payload, name, value)
+
+
+class VideoCodecConfig:
+    """Represents the video codec configuration for a channel."""
+
+    def __init__(self, payload: sdk.VideoCodec) -> None:
+        """Initialize a VideoCodecConfig object.
+
+        Args:
+            payload: The underlying sdk.VideoCodec object.
+
+        """
+        self.payload = payload
+
+    def __getattr__(self, name: str) -> object:
+        """Dynamically retrieve attributes from the underlying SDK payload.
+
+        Args:
+            name: The name of the attribute to retrieve.
+
+        Returns:
+            The value of the attribute.
+
+        Raises:
+            AttributeError: If the attribute does not exist.
+
+        """
+        if name in dir(self):
+            return self.__dict__[name]
+        value = _get_tt_obj_attribute(self.payload, name)
+        if isinstance(value, (bytes, sdk.TTCHAR, sdk.TTCHAR_P)):
+            return sdk.ttstr(cast("sdk.TTCHAR_P", value))
+        return value
+
+    def __setattr__(self, name: str, value: object) -> None:
+        """Dynamically set attributes on the underlying SDK payload.
+
+        Args:
+            name: The name of the attribute to set.
+            value: The value to set.
+
+        Raises:
+            AttributeError: If the attribute does not exist.
+
+        """
+        if name in dir(self) or name == "payload":
+            self.__dict__[name] = value
+        else:
+            _get_tt_obj_attribute(self.payload, name)  # Check if attribute exists
+            _set_tt_obj_attribute(self.payload, name, value)
 
 
 class _CodecTypeMeta(type):
     def __getattr__(cls, name: str) -> int:
-        name_upper = name.upper()
-
-        potential_names_in_sdk = [
-            name_upper,
-            name_upper + "_CODEC",
-        ]
-        if name_upper.endswith("_CODEC"):
-            potential_names_in_sdk.append(name_upper[:-6])
-
-        for sdk_name_candidate in potential_names_in_sdk:
-            if hasattr(sdk.Codec, sdk_name_candidate):
-                return cast("int", getattr(sdk.Codec, sdk_name_candidate))
-
-        raise AttributeError(
-            f"'{cls.__name__}' has no attribute '{name}' corresponding to a "
-            f"known SDK Codec. Tried resolving from: "
-            f"{potential_names_in_sdk} in sdk.Codec."
-        )
+        name = f"CODEC_{name}"
+        value = getattr(sdk.Codec, name, None)
+        if value is None:
+            raise AttributeError(f"'{cls.__name__}' object has no attribute '{name}'")
+        return cast("int", value)
 
     def __dir__(cls) -> list[str]:
-        members = set()
-        excluded_attributes = [
-            "name",
-            "value",
-            "values",
-            "name_mapping",
-            "value_mapping",
-            "mro",
-        ]
-
-        for attr_name_sdk in dir(sdk.Codec):
-            if (
-                not attr_name_sdk.startswith("_")
-                and attr_name_sdk not in excluded_attributes
-            ):
-                user_friendly_name = attr_name_sdk
-                user_friendly_name = user_friendly_name.removesuffix("_CODEC")
-
-                try:
-                    resolved_attr = getattr(cls, user_friendly_name)
-                    if isinstance(resolved_attr, int):
-                        members.add(user_friendly_name)
-                except AttributeError:
-                    pass
-
-        return sorted(members)
+        return [attr[6:] for attr in dir(sdk.Codec) if attr.startswith("CODEC_")]
 
 
 class CodecType(metaclass=_CodecTypeMeta):
-    """Represents media codec types available in the SDK (both audio and video).
-
-    Allows dynamic access to SDK codec integer values by their common names,
-    similar to how `pytalk.Permission` works. The lookup is case-insensitive
-    and attempts to match common naming patterns in `sdk.Codec`.
-
-    Example:
-        `CodecType.WEBM_VP8` (resolves to `sdk.Codec.WEBM_VP8_CODEC`)
-        `CodecType.OPUS` (resolves to `sdk.Codec.OPUS_CODEC`)
-
-    Warning:
-        When using these values with specific SDK functions (like setting
-        a video codec for media file streaming), ensure you are passing a codec type
-        appropriate for that function's parameter.
-
-    """
+    """A class representing Codec types in TeamTalk."""

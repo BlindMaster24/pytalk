@@ -72,7 +72,9 @@ class Server:
         msg.nToUserID = 0
         msg.szMessage = sdk.ttstr(content)  # type: ignore [arg-type]
         msg.bMore = False
-        return self.teamtalk_instance._send_message(msg, **kwargs)
+        self.teamtalk_instance.bot.loop.create_task(
+            self.teamtalk_instance._send_message(msg, **kwargs)
+        )
 
     def ping(self) -> bool:
         """Pings the server.

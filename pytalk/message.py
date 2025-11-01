@@ -79,7 +79,9 @@ class Message:
             msg.nToUserID = self.from_id
         msg.szMessage = sdk.ttstr(content)  # type: ignore [arg-type]
         msg.bMore = False
-        self.teamtalk_instance._send_message(msg, **kwargs)
+        self.teamtalk_instance.bot.loop.create_task(
+            self.teamtalk_instance._send_message(msg, **kwargs)
+        )
 
     def is_me(self) -> bool:
         """Check if the message was sent by the bot.

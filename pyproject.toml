@@ -134,6 +134,8 @@ dependencies = [
     "mypy~=1.18",
     "types-requests",
     "types-beautifulsoup4",
+    "pytest~=8.4.2",
+    "pytest-asyncio~=1.2.0",
 ]
 
 [tool.hatch.envs.dev.scripts]
@@ -142,6 +144,10 @@ format = "ruff format ."
 typecheck = "mypy pytalk"
 check = "pre-commit run --all-files"
 hooks = "pre-commit install"
+
+
+
+
 
 [tool.hatch.build.targets.wheel]
 packages = ["pytalk"]

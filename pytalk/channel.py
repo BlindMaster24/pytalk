@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Any, cast
 
 from ._utils import _get_tt_obj_attribute, _set_tt_obj_attribute, _wait_for_cmd
+from .codec import AudioCodecConfig
 from .exceptions import PytalkPermissionError
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 
@@ -37,6 +38,66 @@ class Channel:
             self.id = channel.nChannelID
             self._channel, self.path = self.teamtalk._get_channel_info(self.id)
         self.server = self.teamtalk.server
+        self._audiocfg = AudioCodecConfig(self._channel.audiocfg)
+
+    @property
+    def audiocfg(self) -> AudioCodecConfig:
+        """The audio codec configuration for the channel."""
+        return self._audiocfg
+
+    @property
+    def disk_quota(self) -> int:
+        """The disk quota for files in the channel."""
+        return cast("int", self._channel.nDiskQuota)
+
+    @disk_quota.setter
+    def disk_quota(self, value: int) -> None:
+        self._channel.nDiskQuota = value
+
+    @property
+    def max_users(self) -> int:
+        """The maximum number of users allowed in the channel."""
+        return cast("int", self._channel.nMaxUsers)
+
+    @max_users.setter
+    def max_users(self, value: int) -> None:
+        self._channel.nMaxUsers = value
+
+    @property
+    def timeout_media_file_msec(self) -> int:
+        """Timeout for media file transmission in milliseconds."""
+        return cast("int", self._channel.nTimeOutTimerMediaFileMSec)
+
+    @timeout_media_file_msec.setter
+    def timeout_media_file_msec(self, value: int) -> None:
+        self._channel.nTimeOutTimerMediaFileMSec = value
+
+    @property
+    def timeout_voice_msec(self) -> int:
+        """Timeout for voice transmission in milliseconds."""
+        return cast("int", self._channel.nTimeOutTimerVoiceMSec)
+
+    @timeout_voice_msec.setter
+    def timeout_voice_msec(self, value: int) -> None:
+        self._channel.nTimeOutTimerVoiceMSec = value
+
+    @property
+    def op_password(self) -> str:
+        """The operator password for the channel."""
+        return sdk.ttstr(cast("sdk.TTCHAR_P", self._channel.szOpPassword))
+
+    @op_password.setter
+    def op_password(self, value: str) -> None:
+        self._channel.szOpPassword = sdk.ttstr(cast("sdk.TTCHAR_P", value))
+
+    @property
+    def user_data(self) -> int:
+        """User-defined data associated with the channel."""
+        return cast("int", self._channel.nUserData)
+
+    @user_data.setter
+    def user_data(self, value: int) -> None:
+        self._channel.nUserData = value
 
     def update(self) -> bool:
         """Update the channel information.
@@ -63,6 +124,9 @@ class Channel:
             raise PytalkPermissionError(
                 "the bot does not have permission to update the channel."
             )
+        # Ensure changes to audiocfg and videocodec objects are reflected in _channel
+        self._channel.audiocfg = self._audiocfg.payload
+
         result = sdk._DoUpdateChannel(self.teamtalk._tt, self._channel)
         if result == -1:
             raise ValueError("Channel could not be updated")
@@ -86,7 +150,7 @@ class Channel:
     def _refresh(self) -> None:
         self._channel, self.path = self.teamtalk._get_channel_info(self.id)
 
-    def send_message(self, content: str, **kwargs: Any) -> None:  # noqa: ANN401
+    async def send_message(self, content: str, **kwargs: Any) -> None:  # noqa: ANN401
         """Send a message to the channel.
 
         Args:
@@ -109,7 +173,7 @@ class Channel:
         msg.nChannelID = self.id
         msg.szMessage = sdk.ttstr(content)  # type: ignore [arg-type]
         msg.bMore = False
-        self.teamtalk._send_message(msg, **kwargs)
+        await self.teamtalk._send_message(msg, **kwargs)
 
     def upload_file(self, filepath: str) -> None:
         """Upload a file to the channel.
@@ -225,6 +289,7 @@ class Channel:
             "server",
             "path",
             "_channel",
+            "_audiocfg",
         ]:
             self.__dict__[name] = value
         else:
