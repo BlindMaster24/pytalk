@@ -98,6 +98,11 @@ jobs:
       - name: Install Hatch
         uses: pypa/hatch@install
 
+      - name: Debug Git status before build
+        run: |
+          git status
+          git diff
+
       - name: Build wheel
         run: hatch build
 
