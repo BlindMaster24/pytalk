@@ -38,7 +38,6 @@ source = "versioningit"
 
 [tool.versioningit]
 vcs = {}
-write = {file = "pytalk/__init__.py", encoding = "utf-8", template = "__version__ = \"{version}\""}
 
 [tool.versioningit.format]
 distance = "{base_version}.post{distance}.dev0"
