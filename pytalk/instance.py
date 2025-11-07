@@ -78,6 +78,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         server_info: TeamTalkServerInfo,
         reconnect: bool = True,
         backoff_config: dict[str, Any] | None = None,
+        auto_login: bool | None = None,
     ) -> None:
         """Initialize a pytalk.TeamTalkInstance instance.
 
@@ -91,6 +92,8 @@ class TeamTalkInstance(sdk.TeamTalk):
                 These settings govern the retry behavior for both the initial
                 connection sequence and for reconnections after a connection loss.
                 Defaults to `None` (using default Backoff settings).
+            auto_login (Optional[bool]): Whether to automatically log in after
+                connecting. ``None`` (default) defers to ``server_info.auto_login``.
 
         """
         super().__init__()
@@ -106,6 +109,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         self._current_input_device_id: int | None = -1
         self._audio_sdk_lock = threading.Lock()
         self.reconnect_enabled = reconnect
+        self.auto_login = server_info.auto_login if auto_login is None else auto_login
         if backoff_config:
             self._backoff = Backoff(**backoff_config)
         else:
@@ -1526,6 +1530,36 @@ class TeamTalkInstance(sdk.TeamTalk):
         ):
             _log.warning("Unhandled event: %s", event)
 
+    async def _login_after_connect(self, *, reconnect: bool) -> bool:
+        """Handle login steps shared by initial connect and reconnect paths."""
+        if not self.auto_login:
+            _log.info(
+                "Auto-login is disabled. Skipping login after %s.",
+                "reconnect" if reconnect else "initial connect",
+            )
+            self._backoff.reset()
+            return True
+
+        login_args = (True,) if reconnect else ()
+        logged_in_ok = await self.bot.loop.run_in_executor(
+            None, self.login, *login_args
+        )
+        if logged_in_ok:
+            _log.info(
+                "Successfully %slogged in to %s.",
+                "re" if reconnect else "",
+                self.server_info.host,
+            )
+            self._backoff.reset()
+            return True
+
+        _log.warning(
+            "Login failed for %s after successful %s.",
+            self.server_info.host,
+            "reconnect" if reconnect else "connection",
+        )
+        return False
+
     async def initial_connect_loop(self) -> bool:
         """Attempt to establish an initial connection and login to the server.
 
@@ -1550,15 +1584,8 @@ class TeamTalkInstance(sdk.TeamTalk):
                     "Successfully connected to %s. Attempting login...",
                     self.server_info.host,
                 )
-                logged_in_ok = await self.bot.loop.run_in_executor(None, self.login)
-                if logged_in_ok:
-                    _log.info("Successfully logged in to %s.", self.server_info.host)
-                    self._backoff.reset()
+                if await self._login_after_connect(reconnect=False):
                     return True
-                _log.warning(
-                    "Login failed for %s after successful connection.",
-                    self.server_info.host,
-                )
             else:
                 _log.warning(
                     "Initial connection attempt failed for %s.",
@@ -1613,20 +1640,8 @@ class TeamTalkInstance(sdk.TeamTalk):
                     "Re-established connection to %s. Attempting login...",
                     self.server_info.host,
                 )
-                logged_in_ok = await self.bot.loop.run_in_executor(
-                    None, self.login, True
-                )
-                if logged_in_ok:
-                    _log.info(
-                        "Successfully reconnected and logged in to %s.",
-                        self.server_info.host,
-                    )
-                    self._backoff.reset()
+                if await self._login_after_connect(reconnect=True):
                     return
-                _log.warning(
-                    "Login failed for %s after successful reconnect.",
-                    self.server_info.host,
-                )
             else:
                 _log.warning(
                     "Reconnect attempt %s failed for %s.",

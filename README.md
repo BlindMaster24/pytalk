@@ -55,6 +55,42 @@ async def on_message(message):
 bot.run()
 ```
 
+#### Manual login flows
+
+When you rely on the BearWare.dk web login flow, the recommended pattern is:
+
+```python
+bot = pytalk.TeamTalkBot()
+
+@bot.event
+async def on_ready():
+    # Call your own helper to fetch a short-lived BearWare session token
+    await bot.add_server(
+        pytalk.TeamTalkServerInfo(
+            {
+                "host": "example.org",
+                "tcp_port": 10333,
+                "udp_port": 10333,
+                # BearWare.dk requires the e-mail-style login as the username
+                "username": "login@bearware.dk",
+                "encrypted": True,
+                # Store the preference with the server info
+                "auto_login": False,
+            }
+        ),
+    )
+
+@bot.event
+async def on_my_connect(server: pytalk.server.Server):
+    token = pytalk.sdk.ttstr(server.get_properties().properties.szAccessToken)
+    # Tell your helper to register/log in using the token
+    server.teamtalk_instance.login()
+```
+
+With ``auto_login`` disabled in the server info, the instance still establishes
+the TCP/UDP connection and manages its backoff timers, but you stay in control
+of *when* ``login()`` runs so the BearWare token exchange can complete first.
+
 
 ## Documentation
 

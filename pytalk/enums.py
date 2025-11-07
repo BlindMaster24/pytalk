@@ -22,6 +22,7 @@ class TeamTalkServerInfo:
         self.nickname = data.get("nickname", data.get("username"))
         self.join_channel_id = data.get("join_channel_id", -1)
         self.join_channel_password = data.get("join_channel_password", "")
+        self.auto_login = data.get("auto_login", True)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
@@ -53,6 +54,7 @@ class TeamTalkServerInfo:
             "nickname": self.nickname if self.nickname else "",
             "join_channel_id": self.join_channel_id,
             "join_channel_password": self.join_channel_password,
+            "auto_login": self.auto_login,
         }
 
     def __eq__(self, other: object) -> bool:
@@ -74,6 +76,7 @@ class TeamTalkServerInfo:
             and self.username == other.username
             and self.password == other.password
             and self.encrypted == other.encrypted
+            and self.auto_login == other.auto_login
         )
 
     def __ne__(self, other: object) -> bool:
@@ -91,7 +94,14 @@ class TeamTalkServerInfo:
     def __hash__(self) -> int:
         """Return the hash value of the object."""
         return hash(
-            (self.host, self.tcp_port, self.udp_port, self.username, self.encrypted)
+            (
+                self.host,
+                self.tcp_port,
+                self.udp_port,
+                self.username,
+                self.encrypted,
+                self.auto_login,
+            )
         )
 
 
