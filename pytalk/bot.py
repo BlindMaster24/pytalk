@@ -58,6 +58,7 @@ class TeamTalkBot:
         server: TeamTalkServerInfo | dict[str, Any],
         reconnect: bool = True,
         backoff_config: dict[str, Any] | None = None,
+        auto_login: bool | None = None,
     ) -> None:
         """Add a server to the bot.
 
@@ -73,12 +74,14 @@ class TeamTalkBot:
                 Can contain keys: `base`, `exponent`, `max_value`, `max_tries`.
                 These settings govern the retry behavior for both the initial
                 connection sequence and for reconnections after a connection loss.
+            auto_login (Optional[bool]): Whether to automatically log in to the
+                server. ``None`` (default) defers to ``server.auto_login``.
 
         """
         if isinstance(server, dict):
             server = TeamTalkServerInfo.from_dict(server)
         _log.debug("Adding server: %s, %s", self, server)
-        tt = TeamTalkInstance(self, server, reconnect, backoff_config)
+        tt = TeamTalkInstance(self, server, reconnect, backoff_config, auto_login)
         successful_initial_connection = await tt.initial_connect_loop()
         if not successful_initial_connection:
             _log.error(

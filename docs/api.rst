@@ -18,8 +18,17 @@ Bot
     :members:
     :exclude-members: event,dispatch
 
-    .. automethod:: pytalk.bot.TeamTalkBot.event()
-        :decorator:
+.. automethod:: pytalk.bot.TeamTalkBot.event()
+    :decorator:
+
+.. tip::
+
+   Set ``auto_login=False`` on :class:`pytalk.enums.TeamTalkServerInfo` (or pass
+   it explicitly to :meth:`pytalk.bot.TeamTalkBot.add_server`) when you need to
+   defer login. The instance will connect and manage backoff as usual, but the
+   caller is responsible for invoking
+   :meth:`pytalk.instance.TeamTalkInstance.login` at the appropriate time (e.g.,
+   after completing a BearWare.dk token exchange).
 
 
 Enums
