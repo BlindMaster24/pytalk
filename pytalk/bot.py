@@ -39,6 +39,9 @@ _log = logging.getLogger(__name__)
 class TeamTalkBot:
     """A class that represents a TeamTalk bot."""
 
+    _license_applied: bool = False
+    _license_value: tuple[str, str] | None = None
+
     def __init__(
         self,
         client_name: str | None = "PyTalk",
@@ -65,20 +68,36 @@ class TeamTalkBot:
             str, list[tuple[asyncio.Future[Any], Callable[..., bool]]]
         ] = {}
 
-        if (license_name is None) ^ (license_key is None):
+        if (license_name or license_key) and not (license_name and license_key):
             msg = "Both license_name and license_key must be provided together."
             raise ValueError(msg)
 
         if license_name and license_key:
-            applied = sdk.setLicense(
-                sdk.ttstr(license_name),  # type: ignore[arg-type]
-                sdk.ttstr(license_key),  # type: ignore[arg-type]
-            )
-            if not applied:
-                _log.warning(
-                    "TeamTalk SDK license information was not accepted; proceeding "
-                    "without applying a license.",
+            if not license_name.strip() or not license_key.strip():
+                msg = "license_name and license_key cannot be empty strings."
+                raise ValueError(msg)
+
+            license_tuple = (license_name, license_key)
+            if TeamTalkBot._license_applied:
+                if license_tuple != TeamTalkBot._license_value:
+                    msg = (
+                        "TeamTalk SDK license is already configured for this process; "
+                        "provide the same credentials or restart the process."
+                    )
+                    raise ValueError(msg)
+            else:
+                applied = sdk.setLicense(
+                    sdk.ttstr(license_name),  # type: ignore[arg-type]
+                    sdk.ttstr(license_key),  # type: ignore[arg-type]
                 )
+                if not applied:
+                    _log.warning(
+                        "TeamTalk SDK license information was not accepted; proceeding "
+                        "without applying a license.",
+                    )
+                else:
+                    TeamTalkBot._license_applied = True
+                    TeamTalkBot._license_value = license_tuple
 
     async def add_server(
         self,

@@ -40,7 +40,8 @@ hatch run sdk-download
 If you have a TeamTalk SDK license, you can pass it when instantiating the bot so
 the SDK is initialized with your credentials. Both `license_name` and
 `license_key` must be provided together; otherwise the library raises a
-`ValueError`.
+`ValueError`. The TeamTalk SDK license is process-wide, so all bot instances in
+the same process must reuse the same credentials.
 
 ```python
 import pytalk

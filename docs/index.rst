@@ -28,7 +28,9 @@ Quick Start
 
 If you own a TeamTalk SDK license, you can supply it at initialization so the
 SDK is unlocked with your credentials. Both ``license_name`` and
-``license_key`` must be provided together. Otherwise, you can omit them.
+``license_key`` must be provided together, and the license is process-wide, so
+all bot instances must share the same credentials. Otherwise, you can omit
+them.
 
 To quickly get started with Pytalk, you can use the following code snippet:
 
