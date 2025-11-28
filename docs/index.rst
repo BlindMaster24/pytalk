@@ -26,13 +26,23 @@ Alternatively, you can download the source code from the GitHub repository and r
 Quick Start
 -----------
 
+If you own a TeamTalk SDK license, you can supply it at initialization so the
+SDK is unlocked with your credentials. Both ``license_name`` and
+``license_key`` must be provided together, and the license is process-wide, so
+all bot instances must share the same credentials. Otherwise, you can omit
+them.
+
 To quickly get started with Pytalk, you can use the following code snippet:
 
 .. code-block::
 
     import pytalk
 
-bot = pytalk.TeamTalkBot()
+bot = pytalk.TeamTalkBot(
+    # Optional: apply your TeamTalk SDK license details if you have them
+    license_name="Your Company",
+    license_key="XXXXX-XXXXX-XXXXX-XXXXX",
+)
 
 @bot.event
 async def on_ready():
