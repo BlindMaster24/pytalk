@@ -37,10 +37,20 @@ hatch run sdk-download
 
 ### Usage
 
+If you have a TeamTalk SDK license, you can pass it when instantiating the bot so
+the SDK is initialized with your credentials. Both `license_name` and
+`license_key` must be provided together; otherwise the library raises a
+`ValueError`.
+
 ```python
 import pytalk
 
-bot = pytalk.TeamTalkBot()
+bot = pytalk.TeamTalkBot(
+    client_name="PyTalk",
+    # Optional: apply your TeamTalk SDK license if you have one
+    license_name="Your Company",
+    license_key="XXXXX-XXXXX-XXXXX-XXXXX",
+)
 
 @bot.event
 async def on_ready():

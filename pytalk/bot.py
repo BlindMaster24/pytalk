@@ -16,6 +16,7 @@ if sys.platform.startswith("linux"):
     import uvloop
 
 from .enums import TeamTalkServerInfo
+from .implementation.TeamTalkPy import TeamTalk5 as sdk
 from .instance import TeamTalkInstance
 
 T = TypeVar("T")
@@ -38,12 +39,23 @@ _log = logging.getLogger(__name__)
 class TeamTalkBot:
     """A class that represents a TeamTalk bot."""
 
-    def __init__(self, client_name: str | None = "PyTalk") -> None:
+    def __init__(
+        self,
+        client_name: str | None = "PyTalk",
+        *,
+        license_name: str | None = None,
+        license_key: str | None = None,
+    ) -> None:
         """Initialize a TeamTalkBot object.
 
         Args:
             client_name (Optional[str]): The name of the client. Defaults to
                 "Teamtalk.py".
+            license_name (Optional[str]): Name/company issued with the TeamTalk SDK
+                license. Must be provided together with ``license_key`` to take
+                effect.
+            license_key (Optional[str]): TeamTalk SDK license key. Must be provided
+                together with ``license_name`` to take effect.
 
         """
         self.client_name = client_name
@@ -52,6 +64,21 @@ class TeamTalkBot:
         self._listeners: dict[
             str, list[tuple[asyncio.Future[Any], Callable[..., bool]]]
         ] = {}
+
+        if (license_name is None) ^ (license_key is None):
+            msg = "Both license_name and license_key must be provided together."
+            raise ValueError(msg)
+
+        if license_name and license_key:
+            applied = sdk.setLicense(
+                sdk.ttstr(license_name),  # type: ignore[arg-type]
+                sdk.ttstr(license_key),  # type: ignore[arg-type]
+            )
+            if not applied:
+                _log.warning(
+                    "TeamTalk SDK license information was not accepted; proceeding "
+                    "without applying a license.",
+                )
 
     async def add_server(
         self,
