@@ -50,6 +50,8 @@ class MoveProEditionTest(unittest.TestCase):
         self.assertTrue((impl_dir / "libTeamTalk5.dylib").exists())
         # Ensure originals are preserved.
         self.assertTrue((impl_dir / "TeamTalk5Pro.dll").exists())
+        self.assertTrue((impl_dir / "libTeamTalk5Pro.so").exists())
+        self.assertTrue((impl_dir / "libTeamTalk5Pro.dylib").exists())
 
 
 if __name__ == "__main__":
