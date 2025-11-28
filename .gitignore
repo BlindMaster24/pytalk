@@ -1,5 +1,6 @@
 example.py
 run.bat
+.gitconfig
 pytalk/implementation/TeamTalk*
 pytalk/ttsdk*
 

@@ -142,6 +142,7 @@ format = "ruff format ."
 typecheck = "mypy pytalk"
 check = "pre-commit run --all-files"
 hooks = "pre-commit install"
+test = "python -m unittest discover -s tests -p 'test*.py'"
 
 [tool.hatch.build.targets.wheel]
 packages = ["pytalk"]

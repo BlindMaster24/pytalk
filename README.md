@@ -35,6 +35,25 @@ hatch run docs:build
 hatch run sdk-download
 ```
 
+### SDK edition/version
+
+- By default, Pytalk downloads the latest **Standard** edition published by BearWare.
+- To target the **Professional** edition or a specific version, add to `pyproject.toml`:
+
+```toml
+[tool.pytalk]
+# sdk_edition: "standard" (default) or "pro"
+sdk_edition = "pro"
+# sdk_version can be omitted for latest, or fixed (e.g. "v5.19a")
+sdk_version = "v5.19a"
+```
+
+- In CI or temporarily, you can override via environment variables:
+  - `PYTALK_TTSDK_EDITION=pro`
+  - `PYTALK_TTSDK_VERSION=v5.19a`
+
+If you change editions, delete `pytalk/implementation` to force a new download. The Pro edition is subject to TeamTalk Pro licensing terms.
+
 ### Usage
 
 ```python
