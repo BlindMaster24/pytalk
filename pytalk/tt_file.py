@@ -65,13 +65,15 @@ class RemoteFile:
 class FileTransfer:
     """Represents a file transfer in progress."""
 
-    def __init__(self, payload: sdk.FileTransfer) -> None:
+    def __init__(self, teamtalk: "TeamTalkInstance", payload: sdk.FileTransfer) -> None:
         """Initialize a FileTransfer object.
 
         Args:
+            teamtalk: The TeamTalkInstance this transfer belongs to.
             payload: The underlying sdk.FileTransfer object.
 
         """
+        self.teamtalk = teamtalk
         self.payload = payload
 
     @property

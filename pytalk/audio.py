@@ -36,6 +36,7 @@ from ._utils import _get_tt_obj_attribute
 from .implementation.TeamTalkPy import TeamTalk5 as sdk
 
 if TYPE_CHECKING:
+    from .instance import TeamTalkInstance
     from .user import User as TeamTalkUser
 
 _AcquireUserAudioBlock = sdk.function_factory(
@@ -129,14 +130,16 @@ class MuxedAudioBlock(AudioBlock):
 
     """
 
-    def __init__(self, block: sdk.AudioBlock) -> None:
+    def __init__(self, teamtalk: "TeamTalkInstance", block: sdk.AudioBlock) -> None:
         """Represent an audio block for the on_muxed_audio event.
 
         Args:
+            teamtalk: The TeamTalkInstance this block belongs to.
             block: The underlying AudioBlock object.
 
         """
         super().__init__(None, block)
+        self.teamtalk = teamtalk
 
     @property
     def user(self) -> None:

@@ -90,6 +90,24 @@ class TeamTalkBot:
             )
         self.teamtalks.append(tt)
 
+    async def add_servers(
+        self,
+        servers: list[TeamTalkServerInfo | dict[str, Any]],
+        reconnect: bool = True,
+        backoff_config: dict[str, Any] | None = None,
+    ) -> None:
+        """Add multiple servers to the bot in parallel.
+
+        Args:
+            servers: A list of TeamTalkServerInfo objects or dictionaries.
+            reconnect (bool): Whether to automatically reconnect. Defaults to True.
+            backoff_config (Optional[dict]): Backoff configuration.
+
+        """
+        await asyncio.gather(
+            *(self.add_server(server, reconnect, backoff_config) for server in servers)
+        )
+
     def run(self) -> None:
         """Connect to all added servers and handle all events."""
         if sys.platform.startswith("linux"):

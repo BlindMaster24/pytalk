@@ -138,15 +138,15 @@ class TeamTalkInstance(sdk.TeamTalk):
             return False
 
         if msg.nClientEvent == sdk.ClientEvent.CLIENTEVENT_CON_SUCCESS:
-            self.bot.dispatch("my_connect", self.server)
+            self.bot.dispatch("my_connect", self)
             self.connected = True
             self.init_time = time.time()
             return True
         if msg.nClientEvent == sdk.ClientEvent.CLIENTEVENT_CON_FAILED:
-            self.bot.dispatch("my_connect_failed", self.server)
+            self.bot.dispatch("my_connect_failed", self)
             return False
         if msg.nClientEvent == sdk.ClientEvent.CLIENTEVENT_CON_CRYPT_ERROR:
-            self.bot.dispatch("my_connect_crypt_error", self.server)
+            self.bot.dispatch("my_connect_crypt_error", self)
             return False
         return False
 
@@ -174,7 +174,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         )
         if not result:
             return False
-        self.bot.dispatch("my_login", self.server)
+        self.bot.dispatch("my_login", self)
         self.logged_in = True
 
         if join_channel_on_login:
@@ -1440,7 +1440,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         if event == sdk.ClientEvent.CLIENTEVENT_CON_LOST:
             self.connected = False
             self.logged_in = False
-            self.bot.dispatch("my_connection_lost", self.server)
+            self.bot.dispatch("my_connection_lost", self)
             if self.reconnect_enabled:
                 _log.info(
                     "Connection lost to %s. Attempting to reconnect...",
@@ -1494,7 +1494,7 @@ class TeamTalkInstance(sdk.TeamTalk):
             try:
                 if source_id == sdk.TT_MUXED_USERID:
                     py_audio_block_wrapper = MuxedAudioBlock(
-                        py_sdk_audio_block_struct_instance
+                        self, py_sdk_audio_block_struct_instance
                     )
                     self.bot.dispatch("muxed_audio", py_audio_block_wrapper)
                 else:
@@ -1583,14 +1583,14 @@ class TeamTalkInstance(sdk.TeamTalk):
             transfer_id = msg.filetransfer.nTransferID
             sdk_file_transfer = sdk.FileTransfer()
             sdk._GetFileTransferInfo(self._tt, transfer_id, sdk_file_transfer)
-            file_transfer = FileTransfer(sdk_file_transfer)
+            file_transfer = FileTransfer(self, sdk_file_transfer)
             if transfer_id in self._file_transfer_callbacks:
                 self._file_transfer_callbacks[transfer_id](file_transfer)
             self.bot.dispatch("file_transfer_progress", file_transfer)
             return
 
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_SERVER_UPDATE:
-            self.bot.dispatch("server_update", self.server)
+            self.bot.dispatch("server_update", self)
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_SERVERSTATISTICS:
             self.bot.dispatch(
