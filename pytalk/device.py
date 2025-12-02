@@ -57,7 +57,7 @@ class SoundDevice:
             The integer device ID.
 
         """
-        return cast("int", self.device_id)
+        return cast("int", self.nDeviceID)
 
     @property
     def name(self) -> str:
@@ -67,7 +67,17 @@ class SoundDevice:
             The string name of the device.
 
         """
-        return cast("str", self.device_name)
+        return cast("str", self.szDeviceName)
+
+    @property
+    def type(self) -> str:
+        """Gets the type of the device (e.g., "Input" or "Output").
+
+        Returns:
+            The type of the device.
+
+        """
+        return cast("str", self.szDeviceType)
 
     @property
     def sound_system(self) -> int:
@@ -77,7 +87,7 @@ class SoundDevice:
             The integer ID of the sound system.
 
         """
-        return self.sound_system
+        return cast("int", self.nSoundSystem)
 
     @property
     def is_input(self) -> bool:
@@ -88,7 +98,7 @@ class SoundDevice:
 
         """
         try:
-            return cast("int", self.max_input_channels) > 0
+            return cast("int", self.nMaxInputChannels) > 0
         except AttributeError:
             return False
 
@@ -101,7 +111,7 @@ class SoundDevice:
 
         """
         try:
-            return cast("int", self.max_output_channels) > 0
+            return cast("int", self.nMaxOutputChannels) > 0
         except AttributeError:
             return False
 

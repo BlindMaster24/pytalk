@@ -33,7 +33,7 @@ from .audio import (
     _AcquireUserAudioBlock,
     _ReleaseUserAudioBlock,
 )
-from .backoff import Backoff
+from .backoff import Backoff, BackoffConfig
 
 if TYPE_CHECKING:
     from .bot import TeamTalkBot
@@ -77,7 +77,7 @@ class TeamTalkInstance(sdk.TeamTalk):
         bot: TeamTalkBot,
         server_info: TeamTalkServerInfo,
         reconnect: bool = True,
-        backoff_config: dict[str, Any] | None = None,
+        backoff_config: BackoffConfig | dict[str, Any] | None = None,
     ) -> None:
         """Initialize a pytalk.TeamTalkInstance instance.
 
@@ -86,11 +86,11 @@ class TeamTalkInstance(sdk.TeamTalk):
             server_info: The server info for the server we wish to connect to.
             reconnect (bool): Whether to automatically reconnect to the server if the
                 connection is lost. Defaults to True.
-            backoff_config (Optional[dict]): Configuration for the exponential backoff.
-                Accepts keys like `base`, `exponent`, `max_value`, `max_tries`.
-                These settings govern the retry behavior for both the initial
-                connection sequence and for reconnections after a connection loss.
-                Defaults to `None` (using default Backoff settings).
+            backoff_config (Optional[Union[BackoffConfig, dict]]): Configuration for the
+                exponential backoff. Can be a BackoffConfig object or a dictionary
+                with keys like `base`, `exponent`, `max_value`, `max_tries`,
+                `jitter_type`.
+                Defaults to `None` (using default BackoffConfig settings).
 
         """
         super().__init__()
@@ -107,8 +107,11 @@ class TeamTalkInstance(sdk.TeamTalk):
         self._audio_sdk_lock = threading.Lock()
         self.reconnect_enabled = reconnect
         self._file_transfer_callbacks: dict[int, Callable[[FileTransfer], None]] = {}
-        if backoff_config:
-            self._backoff = Backoff(**backoff_config)
+
+        if isinstance(backoff_config, dict):
+            self._backoff = Backoff(config=BackoffConfig(**backoff_config))
+        elif isinstance(backoff_config, BackoffConfig):
+            self._backoff = Backoff(config=backoff_config)
         else:
             self._backoff = Backoff()
 
@@ -1450,9 +1453,16 @@ class TeamTalkInstance(sdk.TeamTalk):
             user_id = msg.user.nUserID
             current_user_state = msg.user.uUserState
             if current_user_state & sdk.UserState.USERSTATE_VOICE:
-                sdk._EnableAudioBlockEventEx(
-                    self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, True
-                )
+                if self.bot._listeners.get("user_audio") or self.bot._listeners.get(
+                    "muxed_audio"
+                ):
+                    sdk._EnableAudioBlockEventEx(
+                        self._tt,
+                        user_id,
+                        sdk.StreamType.STREAMTYPE_VOICE,
+                        None,
+                        True,
+                    )
             else:
                 sdk._EnableAudioBlockEventEx(
                     self._tt, user_id, sdk.StreamType.STREAMTYPE_VOICE, None, False
@@ -1503,7 +1513,9 @@ class TeamTalkInstance(sdk.TeamTalk):
             return
         if event == sdk.ClientEvent.CLIENTEVENT_CMD_USER_JOINED:
             user_joined = TeamTalkUser(self, msg.user)
-            if user_joined.id == super().getMyUserID():
+            if user_joined.id == super().getMyUserID() and self.bot._listeners.get(
+                "muxed_audio"
+            ):
                 sdk._EnableAudioBlockEventEx(
                     self._tt,
                     sdk.TT_MUXED_USERID,

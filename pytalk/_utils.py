@@ -70,34 +70,52 @@ def _get_abs_time_diff(t1: float, t2: float) -> int:
     return abs(t1 - t2)
 
 
-def _get_tt_obj_attribute(obj: object, attr: str) -> object:  # noqa: C901
-    name = ""
-    for name_part in attr.split("_"):
-        if name_part.lower() == "id":
-            name += "ID"
-        elif name_part.lower() == "ip":
-            name += "IP"
-        elif name_part.lower() == "tx":
-            name += "TX"
-        elif name_part.lower() == "rx":
-            name += "RX"
-        elif name_part.lower() == "msec":
-            name += "MSec"
-        elif name_part.isupper():
-            name += name_part
-        else:
-            name += name_part.capitalize()
+def _get_explicit_attribute(obj: object, attr: str) -> object | None:
+    field_candidates = {
+        "id": ("nChannelID", "nDeviceID", "nUserID"),
+        "name": ("szName", "szDeviceName"),
+        "type": ("szDeviceType",),
+        "max_input_channels": ("nMaxInputChannels",),
+        "max_output_channels": ("nMaxOutputChannels",),
+        "sound_system": ("nSoundSystem",),
+    }
+
+    candidates = field_candidates.get(attr)
+    if candidates:
+        for field in candidates:
+            if hasattr(obj, field):
+                return cast("object", getattr(obj, field))
+
+    return None
+
+
+def _get_tt_obj_attribute(obj: object, attr: str) -> object:
+    # Direct mappings for common Pythonic names to SDK names
+    explicit_val = _get_explicit_attribute(obj, attr)
+    if explicit_val is not None:
+        return explicit_val
+
+    # General logic for other attributes
+    # Convert Pythonic 'attr' to SDK-style 'Name' (e.g., 'max_users' -> 'MaxUsers')
+    sdk_name_parts = [part.capitalize() for part in attr.split("_")]
+    sdk_name = "".join(sdk_name_parts)
+
+    # Try common prefixes
     prefixes = ["n", "sz", "b", "u"]
     for prefix in prefixes:
-        try:
-            return getattr(obj, f"{prefix}{name}")
-        except AttributeError:
-            pass
-    try:
-        return getattr(obj, f"{name[0].lower()}{name[1:]}")
-    except AttributeError:
-        pass
-    raise AttributeError(f"Could not find attribute {name} in {obj}")
+        full_sdk_attr = f"{prefix}{sdk_name}"
+        if hasattr(obj, full_sdk_attr):
+            return getattr(obj, full_sdk_attr)
+
+    # Try without prefix (e.g., 'payload')
+    if hasattr(obj, sdk_name):
+        return getattr(obj, sdk_name)
+
+    # Try lowercase first letter (e.g., 'payload' -> 'payload')
+    if sdk_name and hasattr(obj, f"{sdk_name[0].lower()}{sdk_name[1:]}"):
+        return getattr(obj, f"{sdk_name[0].lower()}{sdk_name[1:]}")
+
+    raise AttributeError(f"Could not find attribute {attr} in {obj}")
 
 
 def percent_to_ref_volume(percent: float) -> int:

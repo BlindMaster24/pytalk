@@ -1,7 +1,4 @@
-"""A module for managing user permissions and some shorthands for checking.
-
-permissions.
-"""
+"""Module containing the Permission class for TeamTalk."""
 
 from typing import cast
 
